@@ -1,0 +1,9 @@
+node_modules/
+server/node_modules/
+yourtube/node_modules/
+
+.next/
+
+.env
+server/.env
+yourtube/.env.localgit init
