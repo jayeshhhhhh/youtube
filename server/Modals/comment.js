@@ -1,23 +1,65 @@
-import mongoose from "mongoose";
-const commentschema = mongoose.Schema(
-  {
-    userid: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
-      required: true,
-    },
-    videoid: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "videofiles",
-      required: true,
-    },
-    commentbody: { type: String },
-    usercommented: { type: String },
-    commentedon: { type: Date, default: Date.now },
+const commentschema = mongoose.Schema({
+  userid: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "user",
   },
-  {
-    timestamps: true,
-  }
-);
 
-export default mongoose.model("comment", commentschema);
+  videoid: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "videofiles",
+  },
+
+  commentbody: {
+    type: String,
+  },
+
+  usercommented: {
+    type: String,
+  },
+
+  language: {
+    type: String,
+    default: "en",
+  },
+
+  translatedText: {
+    type: String,
+    default: "",
+  },
+
+  likes: {
+    type: Number,
+    default: 0,
+  },
+
+  dislikes: {
+    type: Number,
+    default: 0,
+  },
+
+  reports: {
+    type: Number,
+    default: 0,
+  },
+
+  status: {
+    type: String,
+    enum: ["active", "reported", "removed"],
+    default: "active",
+  },
+
+  showLocation: {
+    type: Boolean,
+    default: false,
+  },
+
+  location: {
+    type: String,
+    default: "",
+  },
+
+  commentedon: {
+    type: Date,
+    default: Date.now,
+  },
+});
