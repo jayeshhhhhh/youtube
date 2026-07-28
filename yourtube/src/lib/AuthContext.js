@@ -35,7 +35,11 @@ export const UserProvider = ({ children }) => {
       const response = await axiosInstance.post("/user/login", payload);
       login(response.data.result);
     } catch (error) {
-      console.error(error);
+    
+  console.log(error);
+  console.log(error.code);
+  console.log(error.message);
+
     }
   };
   useEffect(() => {
