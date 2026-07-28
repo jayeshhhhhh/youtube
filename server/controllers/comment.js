@@ -143,7 +143,9 @@ export const translateComment = async (req, res) => {
 
     res.status(200).json(existingComment);
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Translation failed" });
-  }
+  console.error(error.response?.data || error.message || error);
+  return res.status(500).json({
+    message: error.response?.data || error.message,
+  });
+}
 };
