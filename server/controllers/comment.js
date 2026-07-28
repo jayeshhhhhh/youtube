@@ -121,22 +121,18 @@ export const translateComment = async (req, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
 
-   const response = await axios.post(
-  "https://translate.argosopentech.com/translate",
+   const response = await axios.get(
+  "https://api.mymemory.translated.net/get",
   {
-    q: existingComment.commentbody,
-    source: "auto",
-    target: targetLanguage,
-    format: "text",
-  },
-  {
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+    params: {
+      q: existingComment.commentbody,
+      langpair: `en|${targetLanguage}`,
     },
-    timeout: 10000,
   }
 );
+
+existingComment.translatedText =
+  response.data.responseData.translatedText;
 
     existingComment.translatedText = response.data.translatedText;
     existingComment.language = targetLanguage;
