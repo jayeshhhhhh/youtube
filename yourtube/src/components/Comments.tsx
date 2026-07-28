@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
+
 interface Comment {
   _id: string;
   videoid: string;
@@ -12,33 +13,27 @@ interface Comment {
   commentbody: string;
   usercommented: string;
   commentedon: string;
+
+  language?: string;
+  translatedText?: string;
+  likes?: number;
+  dislikes?: number;
+  reports?: number;
+  status?: string;
+  showLocation?: boolean;
+  location?: string;
 }
+
 const Comments = ({ videoId }: any) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [language, setLanguage] = useState("en");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const { user } = useUser();
   const [loading, setLoading] = useState(true);
-  const fetchedComments = [
-    {
-      _id: "1",
-      videoid: videoId,
-      userid: "1",
-      commentbody: "Great video! Really enjoyed watching this.",
-      usercommented: "John Doe",
-      commentedon: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      _id: "2",
-      videoid: videoId,
-      userid: "2",
-      commentbody: "Thanks for sharing this amazing content!",
-      usercommented: "Jane Smith",
-      commentedon: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ];
+
   useEffect(() => {
     loadComments();
   }, [videoId]);
@@ -53,21 +48,26 @@ const Comments = ({ videoId }: any) => {
       setLoading(false);
     }
   };
+
   if (loading) {
-    return <div>Loading history...</div>;
+    return <div>Loading comments...</div>;
   }
+
   const handleSubmitComment = async () => {
     if (!user || !newComment.trim()) return;
 
     setIsSubmitting(true);
+
     try {
       const res = await axiosInstance.post("/comment/postcomment", {
         videoid: videoId,
         userid: user._id,
         commentbody: newComment,
         usercommented: user.name,
+        language: language,
       });
-      if (res.data.comment) {
+
+      if (res.data) {
         const newCommentObj: Comment = {
           _id: Date.now().toString(),
           videoid: videoId,
@@ -75,12 +75,16 @@ const Comments = ({ videoId }: any) => {
           commentbody: newComment,
           usercommented: user.name || "Anonymous",
           commentedon: new Date().toISOString(),
+          language: language,
         };
+
         setComments([newCommentObj, ...comments]);
       }
+
       setNewComment("");
+      setLanguage("en");
     } catch (error) {
-      console.error("Error adding comment:", error);
+      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -93,17 +97,24 @@ const Comments = ({ videoId }: any) => {
 
   const handleUpdateComment = async () => {
     if (!editText.trim()) return;
+
     try {
       const res = await axiosInstance.post(
         `/comment/editcomment/${editingCommentId}`,
-        { commentbody: editText }
+        {
+          commentbody: editText,
+        }
       );
+
       if (res.data) {
         setComments((prev) =>
           prev.map((c) =>
-            c._id === editingCommentId ? { ...c, commentbody: editText } : c
+            c._id === editingCommentId
+              ? { ...c, commentbody: editText }
+              : c
           )
         );
+
         setEditingCommentId(null);
         setEditText("");
       }
@@ -114,17 +125,46 @@ const Comments = ({ videoId }: any) => {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await axiosInstance.delete(`/comment/deletecomment/${id}`);
-      if (res.data.comment) {
+      const res = await axiosInstance.delete(
+        `/comment/deletecomment/${id}`
+      );
+
+      if (res.data) {
         setComments((prev) => prev.filter((c) => c._id !== id));
       }
     } catch (error) {
       console.log(error);
     }
   };
+  const handleLike = async (id: string) => {
+    try {
+      const res = await axiosInstance.patch(`/comment/like/${id}`);
+
+      setComments((prev) =>
+        prev.map((c) => (c._id === id ? res.data : c))
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleDislike = async (id: string) => {
+    try {
+      const res = await axiosInstance.patch(`/comment/dislike/${id}`);
+
+      setComments((prev) =>
+        prev.map((c) => (c._id === id ? res.data : c))
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">{comments.length} Comments</h2>
+      <h2 className="text-xl font-semibold">
+        {comments.length} Comments
+      </h2>
 
       {user && (
         <div className="flex gap-4">
@@ -132,13 +172,26 @@ const Comments = ({ videoId }: any) => {
             <AvatarImage src={user.image || ""} />
             <AvatarFallback>{user.name?.[0] || "U"}</AvatarFallback>
           </Avatar>
-          <div className="flex-1 space-y-2">
+
+          <div className="flex-1 space-y-3">
             <Textarea
               placeholder="Add a comment..."
               value={newComment}
               onChange={(e: any) => setNewComment(e.target.value)}
               className="min-h-[80px] resize-none border-0 border-b-2 rounded-none focus-visible:ring-0"
             />
+
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="border rounded px-3 py-2 text-sm"
+            >
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+              <option value="mr">Marathi</option>
+              <option value="gu">Gujarati</option>
+            </select>
+
             <div className="flex gap-2 justify-end">
               <Button
                 variant="ghost"
@@ -147,6 +200,7 @@ const Comments = ({ videoId }: any) => {
               >
                 Cancel
               </Button>
+
               <Button
                 onClick={handleSubmitComment}
                 disabled={!newComment.trim() || isSubmitting}
@@ -157,25 +211,37 @@ const Comments = ({ videoId }: any) => {
           </div>
         </div>
       )}
+
       <div className="space-y-4">
         {comments.length === 0 ? (
           <p className="text-sm text-gray-500 italic">
-            No comments yet. Be the first to comment!
+            No comments yet.
           </p>
         ) : (
           comments.map((comment) => (
             <div key={comment._id} className="flex gap-4">
               <Avatar className="w-10 h-10">
-                <AvatarImage src="/placeholder.svg?height=40&width=40" />
-                <AvatarFallback>{comment.usercommented[0]}</AvatarFallback>
+                <AvatarImage src="/placeholder.svg" />
+                <AvatarFallback>
+                  {comment.usercommented[0]}
+                </AvatarFallback>
               </Avatar>
+
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-medium text-sm">
                     {comment.usercommented}
                   </span>
+
                   <span className="text-xs text-gray-600">
-                    {formatDistanceToNow(new Date(comment.commentedon))} ago
+                    {formatDistanceToNow(
+                      new Date(comment.commentedon)
+                    )}{" "}
+                    ago
+                  </span>
+
+                  <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                    {comment.language?.toUpperCase()}
                   </span>
                 </div>
 
@@ -183,8 +249,11 @@ const Comments = ({ videoId }: any) => {
                   <div className="space-y-2">
                     <Textarea
                       value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
+                      onChange={(e) =>
+                        setEditText(e.target.value)
+                      }
                     />
+
                     <div className="flex gap-2 justify-end">
                       <Button
                         onClick={handleUpdateComment}
@@ -192,6 +261,7 @@ const Comments = ({ videoId }: any) => {
                       >
                         Save
                       </Button>
+
                       <Button
                         variant="ghost"
                         onClick={() => {
@@ -206,12 +276,37 @@ const Comments = ({ videoId }: any) => {
                 ) : (
                   <>
                     <p className="text-sm">{comment.commentbody}</p>
+                    <div className="flex gap-5 mt-2">
+
+                      <button
+                        onClick={() => handleLike(comment._id)}
+                        className="text-blue-600"
+                      >
+                        👍 {comment.likes}
+                      </button>
+
+                      <button
+                        onClick={() => handleDislike(comment._id)}
+                        className="text-red-600"
+                      >
+                        👎 {comment.dislikes}
+                      </button>
+
+                    </div>
+
                     {comment.userid === user?._id && (
                       <div className="flex gap-2 mt-2 text-sm text-gray-500">
-                        <button onClick={() => handleEdit(comment)}>
+                        <button
+                          onClick={() => handleEdit(comment)}
+                        >
                           Edit
                         </button>
-                        <button onClick={() => handleDelete(comment._id)}>
+
+                        <button
+                          onClick={() =>
+                            handleDelete(comment._id)
+                          }
+                        >
                           Delete
                         </button>
                       </div>

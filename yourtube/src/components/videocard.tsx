@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback } from "./ui/avatar";
 
 const videos = "/video/vdo.mp4";
 export default function VideoCard({ video }: any) {
+  console.log(video);
+  console.log(process.env.NEXT_PUBLIC_BACKEND_URL);
   return (
     <Link href={`/watch/${video?._id}`} className="group">
       <div className="space-y-3">
@@ -26,6 +28,7 @@ export default function VideoCard({ video }: any) {
             <h3 className="font-medium text-sm line-clamp-2 group-hover:text-blue-600">
               {video?.videotitle}
             </h3>
+            
             <p className="text-sm text-gray-600 mt-1">{video?.videochanel}</p>
             <p className="text-sm text-gray-600">
               {video?.views.toLocaleString()} views •{" "}
