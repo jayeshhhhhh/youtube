@@ -159,7 +159,26 @@ const Comments = ({ videoId }: any) => {
       console.log(error);
     }
   };
+  const handleTranslate = async (id: string) => {
+    try {
+      const res = await axiosInstance.post(`/comment/translate/${id}`, {
+        targetLanguage: "hi",
+      });
 
+      setComments((prev: any) =>
+        prev.map((c: any) =>
+          c._id === id
+            ? {
+              ...c,
+              translatedText: res.data.translatedText,
+            }
+            : c
+        )
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  };
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">
@@ -276,6 +295,19 @@ const Comments = ({ videoId }: any) => {
                 ) : (
                   <>
                     <p className="text-sm">{comment.commentbody}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleTranslate(comment._id)}
+                    >
+                      Translate
+                    </Button>
+
+                    {comment.translatedText && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        {comment.translatedText}
+                      </p>
+                    )}
                     <div className="flex gap-5 mt-2">
 
                       <button
