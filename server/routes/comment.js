@@ -5,6 +5,8 @@ import {
   postcomment,
   editcomment,
   translateComment,
+  likeComment,
+  dislikeComment,
 } from "../controllers/comment.js";
 
 const routes = express.Router();
