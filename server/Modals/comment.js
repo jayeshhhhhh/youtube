@@ -63,3 +63,4 @@ const commentschema = mongoose.Schema({
     default: Date.now,
   },
 });
+export default Comment;
