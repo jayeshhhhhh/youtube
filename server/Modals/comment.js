@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 const commentschema = mongoose.Schema({
   userid: {
     type: mongoose.Schema.Types.ObjectId,
@@ -63,4 +64,4 @@ const commentschema = mongoose.Schema({
     default: Date.now,
   },
 });
-export default Comment;
+export default commentschema;
