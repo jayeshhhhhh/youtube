@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-const commentschema = mongoose.Schema({
+
+const commentschema = new mongoose.Schema({
   userid: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "user",
@@ -64,4 +65,5 @@ const commentschema = mongoose.Schema({
     default: Date.now,
   },
 });
-export default commentschema;
+
+export default mongoose.model("comment", commentschema);
