@@ -1,6 +1,6 @@
 import comment from "../Modals/comment.js";
 import mongoose from "mongoose";
-
+import axios from "axios";
 export const postcomment = async (req, res) => {
   const commentdata = req.body;
   const postcomment = new comment(commentdata);
@@ -107,5 +107,43 @@ export const dislikeComment = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+//translate comment
+export const translateComment = async (req, res) => {
+  const { id } = req.params;
+  const { targetLanguage } = req.body;
+
+  try {
+    const existingComment = await comment.findById(id);
+
+    if (!existingComment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    const response = await axios.post(
+      "https://libretranslate.de/translate",
+      {
+        q: existingComment.commentbody,
+        source: "auto",
+        target: targetLanguage,
+        format: "text",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    existingComment.translatedText = response.data.translatedText;
+    existingComment.language = targetLanguage;
+
+    await existingComment.save();
+
+    res.status(200).json(existingComment);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Translation failed" });
   }
 };
