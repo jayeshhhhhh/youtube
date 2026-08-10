@@ -16,7 +16,6 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
         controls
         playsInline
         preload="metadata"
-        poster="/placeholder.svg?height=480&width=854"
       >
         <source
           src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${video.filepath}`}
