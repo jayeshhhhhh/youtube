@@ -10,9 +10,9 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({ video }: VideoPlayerProps) {
   return (
-    <div className="w-full bg-black rounded-lg overflow-hidden">
+    <div className="w-full aspect-video bg-black rounded-lg overflow-hidden">
       <video
-        className="w-full block"
+        className="w-full h-full object-contain"
         controls
         playsInline
         preload="metadata"
@@ -21,6 +21,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
           src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${video.filepath}`}
           type="video/mp4"
         />
+
         Your browser does not support the video tag.
       </video>
     </div>
