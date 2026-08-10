@@ -24,6 +24,8 @@ const VideoInfo = ({ video }: any) => {
 
   const { user } = useUser();
 
+  // ================= UPDATE VIDEO DATA =================
+
   useEffect(() => {
     setlikes(video.Like || 0);
     setDislikes(video.Dislike || 0);
@@ -35,6 +37,8 @@ const VideoInfo = ({ video }: any) => {
 
   useEffect(() => {
     const handleviews = async () => {
+      if (!video?._id) return;
+
       try {
         if (user) {
           await axiosInstance.post(`/history/${video._id}`, {
@@ -48,9 +52,7 @@ const VideoInfo = ({ video }: any) => {
       }
     };
 
-    if (video?._id) {
-      handleviews();
-    }
+    handleviews();
   }, [user, video]);
 
   // ================= LIKE =================
@@ -136,7 +138,7 @@ const VideoInfo = ({ video }: any) => {
         setIsWatchLater(false);
       }
     } catch (error) {
-      console.log("Watch later error:", error);
+      console.log("Watch Later error:", error);
     }
   };
 
@@ -177,7 +179,6 @@ const VideoInfo = ({ video }: any) => {
 
       link.href = response.data.fileUrl;
       link.download = video.filename || "video.mp4";
-      link.target = "_blank";
 
       document.body.appendChild(link);
       link.click();
@@ -198,13 +199,18 @@ const VideoInfo = ({ video }: any) => {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      {/* VIDEO TITLE */}
-      <h1 className="text-xl font-semibold">{video.videotitle}</h1>
+  // ================= UI =================
 
-      {/* CHANNEL + ACTION BUTTONS */}
+  return (
+    <>
+      {/* VIDEO TITLE */}
+      <h1 className="text-xl font-semibold text-foreground mb-4">
+        {video.videotitle}
+      </h1>
+
+      {/* CHANNEL + BUTTONS */}
       <div className="flex items-center justify-between">
+        {/* CHANNEL */}
         <div className="flex items-center gap-4">
           <Avatar className="w-10 h-10">
             <AvatarFallback>
@@ -214,15 +220,23 @@ const VideoInfo = ({ video }: any) => {
 
           <div>
             <h3 className="font-medium">{video.videochanel}</h3>
-            <p className="text-sm text-gray-600">1.2M subscribers</p>
+
+            <p className="text-sm text-gray-600">
+              1.2M subscribers
+            </p>
           </div>
 
-          <Button className="ml-4">Subscribe</Button>
+          <Button className="ml-4">
+            Subscribe
+          </Button>
         </div>
 
+        {/* ACTION BUTTONS */}
         <div className="flex items-center gap-2">
-          {/* LIKE / DISLIKE */}
+
+          {/* LIKE + DISLIKE */}
           <div className="flex items-center bg-gray-100 rounded-full">
+
             <Button
               variant="ghost"
               size="sm"
@@ -234,6 +248,7 @@ const VideoInfo = ({ video }: any) => {
                   isLiked ? "fill-black text-black" : ""
                 }`}
               />
+
               {likes.toLocaleString()}
             </Button>
 
@@ -250,8 +265,10 @@ const VideoInfo = ({ video }: any) => {
                   isDisliked ? "fill-black text-black" : ""
                 }`}
               />
+
               {dislikes.toLocaleString()}
             </Button>
+
           </div>
 
           {/* WATCH LATER */}
@@ -264,6 +281,7 @@ const VideoInfo = ({ video }: any) => {
             onClick={handleWatchLater}
           >
             <Clock className="w-5 h-5 mr-2" />
+
             {isWatchLater ? "Saved" : "Watch Later"}
           </Button>
 
@@ -274,6 +292,7 @@ const VideoInfo = ({ video }: any) => {
             className="bg-gray-100 rounded-full"
           >
             <Share className="w-5 h-5 mr-2" />
+
             Share
           </Button>
 
@@ -298,30 +317,40 @@ const VideoInfo = ({ video }: any) => {
           >
             <MoreHorizontal className="w-5 h-5" />
           </Button>
+
         </div>
       </div>
 
-      {/* VIDEO DETAILS */}
-      <div className="bg-gray-100 rounded-lg p-4">
+      {/* DESCRIPTION / VIEWS */}
+      <div className="bg-gray-100 rounded-lg p-4 mt-4">
+
         <div className="flex gap-4 text-sm font-medium mb-2">
-          <span>{video.views?.toLocaleString() || 0} views</span>
+
+          <span>
+            {video.views?.toLocaleString() || 0} views
+          </span>
 
           <span>
             {video.createdAt
-              ? formatDistanceToNow(new Date(video.createdAt))
+              ? formatDistanceToNow(
+                  new Date(video.createdAt)
+                )
               : "Recently"}{" "}
             ago
           </span>
+
         </div>
 
         <div
           className={`text-sm ${
-            showFullDescription ? "" : "line-clamp-3"
+            showFullDescription
+              ? ""
+              : "line-clamp-3"
           }`}
         >
           <p>
-            Sample video description. This would contain the actual video
-            description from the database.
+            Sample video description. This would contain
+            the actual video description from the database.
           </p>
         </div>
 
@@ -330,13 +359,18 @@ const VideoInfo = ({ video }: any) => {
           size="sm"
           className="mt-2 p-0 h-auto font-medium"
           onClick={() =>
-            setShowFullDescription(!showFullDescription)
+            setShowFullDescription(
+              !showFullDescription
+            )
           }
         >
-          {showFullDescription ? "Show less" : "Show more"}
+          {showFullDescription
+            ? "Show less"
+            : "Show more"}
         </Button>
+
       </div>
-    </div>
+    </>
   );
 };
 

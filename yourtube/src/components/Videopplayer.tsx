@@ -18,7 +18,7 @@ export default function VideoPlayer({ video }: VideoPlayerProps) {
       ref={videoRef}
       className="w-full h-full"
       controls
-      poster={`/placeholder.svg?height=480&width=854`}
+      poster="/placeholder.svg?height=480&width=854"
     >
       <source
         src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${video?.filepath}`}
