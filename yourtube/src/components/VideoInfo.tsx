@@ -111,6 +111,41 @@ const VideoInfo = ({ video }: any) => {
       console.log(error);
     }
   };
+  const handleDownload = async () => {
+  if (!user) {
+    alert("Please login to download videos.");
+    return;
+  }
+
+  try {
+    console.log("Download clicked");
+    console.log("User:", user);
+    console.log("Video:", video);
+
+    const res = await axiosInstance.post("/download", {
+      userId: user._id,
+      videoId: video._id,
+    });
+
+    console.log("Download response:", res.data);
+
+    if (res.data?.fileUrl) {
+      const link = document.createElement("a");
+      link.href = res.data.fileUrl;
+      link.download = video.filename || video.videotitle || "video.mp4";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  } catch (error: any) {
+    console.error("Download error:", error);
+
+    alert(
+      error.response?.data?.message ||
+        "Unable to download this video."
+    );
+  }
+};
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{video.videotitle}</h1>
@@ -203,17 +238,19 @@ const VideoInfo = ({ video }: any) => {
             description from the database.
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2 p-0 h-auto font-medium"
-          onClick={() => setShowFullDescription(!showFullDescription)}
-        >
-          {showFullDescription ? "Show less" : "Show more"}
-        </Button>
+       <Button
+  variant="ghost"
+  size="sm"
+  className="bg-gray-100 rounded-full"
+  onClick={handleDownload}
+>
+  <Download className="w-5 h-5 mr-2" />
+  Download
+</Button>
       </div>
     </div>
   );
 };
+
 
 export default VideoInfo;
