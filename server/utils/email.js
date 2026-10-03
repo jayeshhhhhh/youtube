@@ -38,6 +38,7 @@ export const sendPaymentConfirmation = async (userEmail, plan, amount, transacti
   }
 };
 
+
 export const sendOTP = async (userEmail, otp) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -72,3 +73,4 @@ export const sendOTP = async (userEmail, otp) => {
     console.error("OTP email sending error:", error);
   }
 };
+
