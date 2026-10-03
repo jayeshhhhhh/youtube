@@ -1,8 +1,36 @@
 import comment from "../Modals/comment.js";
 import mongoose from "mongoose";
 import axios from "axios";
+
+// Simple internal profanity filter to avoid "bad-words" import crashes
+const BANNED_WORDS = ["badword1", "badword2", "spam"]; // Add words as needed
+
+const validateComment = (text) => {
+  if (!text) return { isValid: false, message: "Comment body is required" };
+
+  // Check for profanity using internal list
+  const containsProfanity = BANNED_WORDS.some(word => text.toLowerCase().includes(word));
+  if (containsProfanity) {
+    return { isValid: false, message: "Your comment contains prohibited content" };
+  }
+
+  // Check for spam (5+ repeated characters)
+  const spamRegex = /(.)\1{4,}/;
+  if (spamRegex.test(text)) {
+    return { isValid: false, message: "Your comment contains spam (repeated characters)" };
+  }
+
+  return { isValid: true };
+};
+
 export const postcomment = async (req, res) => {
   const commentdata = req.body;
+
+  const validation = validateComment(commentdata.commentbody);
+  if (!validation.isValid) {
+    return res.status(400).json({ message: validation.message });
+  }
+
   const postcomment = new comment(commentdata);
 
   try {
@@ -18,7 +46,7 @@ export const getallcomment = async (req, res) => {
   const { videoid } = req.params;
 
   try {
-    const commentvideo = await comment.find({ videoid: videoid });
+    const commentvideo = await comment.find({ videoid: videoid }).populate("userid");
     return res.status(200).json(commentvideo);
   } catch (error) {
     console.error(error);
@@ -46,6 +74,11 @@ export const editcomment = async (req, res) => {
   const { id: _id } = req.params;
   const { commentbody } = req.body;
 
+  const validation = validateComment(commentbody);
+  if (!validation.isValid) {
+    return res.status(400).json({ message: validation.message });
+  }
+
   if (!mongoose.Types.ObjectId.isValid(_id)) {
     return res.status(404).send("Comment unavailable");
   }
@@ -68,48 +101,92 @@ export const editcomment = async (req, res) => {
   }
 };
 
-// ================= LIKE =================
-
 export const likeComment = async (req, res) => {
-  const { id } = req.params;
+  const { id: _id } = req.params;
+  const { userid } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    return res.status(404).json({ message: "Comment unavailable" });
+  }
 
   try {
-    const updatedComment = await comment.findByIdAndUpdate(
-      id,
-      {
-        $inc: { likes: 1 },
-      },
-      { new: true }
-    );
+    const existingComment = await comment.findById(_id);
+    if (!existingComment) return res.status(404).json({ message: "Comment not found" });
 
+    const isLiked = existingComment.likes.includes(userid);
+    const isDisliked = existingComment.dislikes.includes(userid);
+
+    let update = {};
+    if (isLiked) {
+      update.$pull = { likes: userid };
+    } else {
+      update.$push = { likes: userid };
+      update.$pull = { dislikes: userid };
+    }
+
+    const updatedComment = await comment.findByIdAndUpdate(_id, update, { new: true });
     return res.status(200).json(updatedComment);
   } catch (error) {
-    console.error(error);
+    console.error(" error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
-
-// ================= DISLIKE =================
 
 export const dislikeComment = async (req, res) => {
-  const { id } = req.params;
+  const { id: _id } = req.params;
+  const { userid } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    return res.status(404).json({ message: "Comment unavailable" });
+  }
 
   try {
-    const updatedComment = await comment.findByIdAndUpdate(
-      id,
-      {
-        $inc: { dislikes: 1 },
-      },
-      { new: true }
-    );
+    const existingComment = await comment.findById(_id);
+    if (!existingComment) return res.status(404).json({ message: "Comment not found" });
 
+    const isDisliked = existingComment.dislikes.includes(userid);
+    const isLiked = existingComment.likes.includes(userid);
+
+    let update = {};
+    if (isDisliked) {
+      update.$pull = { dislikes: userid };
+    } else {
+      update.$push = { dislikes: userid };
+      update.$pull = { likes: userid };
+    }
+
+    const updatedComment = await comment.findByIdAndUpdate(_id, update, { new: true });
     return res.status(200).json(updatedComment);
   } catch (error) {
-    console.error(error);
+    console.error(" error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
-//translate comment
+
+export const reportComment = async (req, res) => {
+  const { id: _id } = req.params;
+  const { userid } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(_id)) {
+    return res.status(404).json({ message: "Comment unavailable" });
+  }
+
+  try {
+    const existingComment = await comment.findById(_id);
+    if (!existingComment) return res.status(404).json({ message: "Comment not found" });
+
+    await comment.findByIdAndUpdate(_id, {
+      $push: { reportedBy: userid },
+      $set: { isReported: true },
+    });
+
+    return res.status(200).json({ message: "Comment reported successfully" });
+  } catch (error) {
+    console.error(" error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
 export const translateComment = async (req, res) => {
   const { id } = req.params;
   const { targetLanguage } = req.body;
@@ -121,29 +198,27 @@ export const translateComment = async (req, res) => {
       return res.status(404).json({ message: "Comment not found" });
     }
 
-   const response = await axios.get(
-  "https://api.mymemory.translated.net/get",
-  {
-    params: {
-      q: existingComment.commentbody,
-      langpair: `en|${targetLanguage}`,
-    },
-  }
-);
+    const response = await axios.get(
+      "https://api.mymemory.translated.net/get",
+      {
+        params: {
+          q: existingComment.commentbody,
+          langpair: `en|${targetLanguage}`,
+        },
+      }
+    );
 
-existingComment.translatedText =
-  response.data.responseData.translatedText;
-
-    existingComment.translatedText = response.data.translatedText;
+    const translatedText = response.data.responseData.translatedText;
+    existingComment.translatedText = translatedText;
     existingComment.language = targetLanguage;
 
     await existingComment.save();
 
     res.status(200).json(existingComment);
   } catch (error) {
-  console.error(error.response?.data || error.message || error);
-  return res.status(500).json({
-    message: error.response?.data || error.message,
-  });
-}
+    console.error(error.response?.data || error.message || error);
+    return res.status(500).json({
+      message: error.response?.data || error.message,
+    });
+  }
 };

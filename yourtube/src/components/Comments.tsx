@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { formatDistanceToNow } from "date-fns";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
+import { ThumbsUp, ThumbsDown, Flag, Languages } from "lucide-react";
 
 interface Comment {
   _id: string;
@@ -13,15 +14,16 @@ interface Comment {
   commentbody: string;
   usercommented: string;
   commentedon: string;
-
+  likes: string[];
+  dislikes: string[];
+  location?: string;
+  showLocation?: boolean;
   language?: string;
   translatedText?: string;
-  likes?: number;
-  dislikes?: number;
-  reports?: number;
-  status?: string;
-  showLocation?: boolean;
-  location?: string;
+  userid_details?: {
+    location?: string;
+    showLocation?: boolean;
+  };
 }
 
 const Comments = ({ videoId }: any) => {
@@ -49,10 +51,6 @@ const Comments = ({ videoId }: any) => {
     }
   };
 
-  if (loading) {
-    return <div>Loading comments...</div>;
-  }
-
   const handleSubmitComment = async () => {
     if (!user || !newComment.trim()) return;
 
@@ -67,24 +65,13 @@ const Comments = ({ videoId }: any) => {
         language: language,
       });
 
-      if (res.data) {
-        const newCommentObj: Comment = {
-          _id: Date.now().toString(),
-          videoid: videoId,
-          userid: user._id,
-          commentbody: newComment,
-          usercommented: user.name || "Anonymous",
-          commentedon: new Date().toISOString(),
-          language: language,
-        };
-
-        setComments([newCommentObj, ...comments]);
+      if (res.data.comment) {
+        await loadComments();
       }
 
       setNewComment("");
-      setLanguage("en");
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Error adding comment");
     } finally {
       setIsSubmitting(false);
     }
@@ -118,8 +105,8 @@ const Comments = ({ videoId }: any) => {
         setEditingCommentId(null);
         setEditText("");
       }
-    } catch (error) {
-      console.log(error);
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Error updating comment");
     }
   };
 
@@ -136,42 +123,61 @@ const Comments = ({ videoId }: any) => {
       console.log(error);
     }
   };
-  const handleLike = async (id: string) => {
-    try {
-      const res = await axiosInstance.patch(`/comment/like/${id}`);
 
+  const handleLike = async (id: string) => {
+    if (!user) return;
+    try {
+      const res = await axiosInstance.post(`/comment/like/${id}`, { userid: user._id });
       setComments((prev) =>
-        prev.map((c) => (c._id === id ? res.data : c))
+        prev.map((c) => (c._id === id ? { ...c, ...res.data } : c))
       );
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
   const handleDislike = async (id: string) => {
+    if (!user) return;
     try {
-      const res = await axiosInstance.patch(`/comment/dislike/${id}`);
-
+      const res = await axiosInstance.post(`/comment/dislike/${id}`, { userid: user._id });
       setComments((prev) =>
-        prev.map((c) => (c._id === id ? res.data : c))
+        prev.map((c) => (c._id === id ? { ...c, ...res.data } : c))
       );
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
-  const handleTranslate = async (id: string) => {
+
+  const handleReport = async (id: string) => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to report this comment?")) return;
+    try {
+      await axiosInstance.post(`/comment/report/${id}`, { userid: user._id });
+      alert("Comment reported for review.");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleTranslate = async (id: string, text: string) => {
+    if (comments.find(c => c._id === id)?.translatedText) {
+      setComments((prev) =>
+        prev.map((c) => (c._id === id ? { ...c, translatedText: undefined } : c))
+      );
+      return;
+    }
     try {
       const res = await axiosInstance.post(`/comment/translate/${id}`, {
-        targetLanguage: "hi",
+        targetLanguage: language,
       });
 
-      setComments((prev: any) =>
-        prev.map((c: any) =>
+      setComments((prev) =>
+        prev.map((c) =>
           c._id === id
             ? {
-              ...c,
-              translatedText: res.data.translatedText,
-            }
+                ...c,
+                translatedText: res.data.translatedText,
+              }
             : c
         )
       );
@@ -179,6 +185,11 @@ const Comments = ({ videoId }: any) => {
       console.log(error);
     }
   };
+
+  if (loading) {
+    return <div className="p-4">Loading comments...</div>;
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">
@@ -200,16 +211,20 @@ const Comments = ({ videoId }: any) => {
               className="min-h-[80px] resize-none border-0 border-b-2 rounded-none focus-visible:ring-0"
             />
 
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="border rounded px-3 py-2 text-sm"
-            >
-              <option value="en">English</option>
-              <option value="hi">Hindi</option>
-              <option value="mr">Marathi</option>
-              <option value="gu">Gujarati</option>
-            </select>
+            <div className="flex gap-4 items-center mb-2">
+              <span className="text-xs text-gray-500">Translate to:</span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="border rounded px-2 py-1 text-xs bg-white"
+              >
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+            </div>
 
             <div className="flex gap-2 justify-end">
               <Button
@@ -224,7 +239,7 @@ const Comments = ({ videoId }: any) => {
                 onClick={handleSubmitComment}
                 disabled={!newComment.trim() || isSubmitting}
               >
-                Comment
+                {isSubmitting ? "Posting..." : "Comment"}
               </Button>
             </div>
           </div>
@@ -237,117 +252,117 @@ const Comments = ({ videoId }: any) => {
             No comments yet.
           </p>
         ) : (
-          comments.map((comment) => (
-            <div key={comment._id} className="flex gap-4">
-              <Avatar className="w-10 h-10">
-                <AvatarImage src="/placeholder.svg" />
-                <AvatarFallback>
-                  {comment.usercommented[0]}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-medium text-sm">
-                    {comment.usercommented}
-                  </span>
-
-                  <span className="text-xs text-gray-600">
-                    {formatDistanceToNow(
-                      new Date(comment.commentedon)
-                    )}{" "}
-                    ago
-                  </span>
-
-                  <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                    {comment.language?.toUpperCase()}
-                  </span>
-                </div>
-
-                {editingCommentId === comment._id ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editText}
-                      onChange={(e) =>
-                        setEditText(e.target.value)
-                      }
-                    />
-
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        onClick={handleUpdateComment}
-                        disabled={!editText.trim()}
-                      >
-                        Save
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingCommentId(null);
-                          setEditText("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+          comments.map((comment) => {
+            const userDetails = comment.userid_details || {};
+            return (
+              <div key={comment._id} className="flex gap-4">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src="/placeholder.svg?height=40&width=40" />
+                  <AvatarFallback>{comment.usercommented?.[0] || "U"}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-sm">
+                      {comment.usercommented}
+                    </span>
+                    {userDetails.showLocation && userDetails.location && (
+                      <span className="text-xs text-gray-400">
+                        • {userDetails.location}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-600">
+                      {formatDistanceToNow(new Date(comment.commentedon))} ago
+                    </span>
                   </div>
-                ) : (
-                  <>
-                    <p className="text-sm">{comment.commentbody}</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleTranslate(comment._id)}
-                    >
-                      Translate
-                    </Button>
 
-                    {comment.translatedText && (
-                      <p className="text-sm text-blue-600 mt-1">
-                        {comment.translatedText}
-                      </p>
-                    )}
-                    <div className="flex gap-5 mt-2">
-
-                      <button
-                        onClick={() => handleLike(comment._id)}
-                        className="text-blue-600"
-                      >
-                        👍 {comment.likes}
-                      </button>
-
-                      <button
-                        onClick={() => handleDislike(comment._id)}
-                        className="text-red-600"
-                      >
-                        👎 {comment.dislikes}
-                      </button>
-
-                    </div>
-
-                    {comment.userid === user?._id && (
-                      <div className="flex gap-2 mt-2 text-sm text-gray-500">
-                        <button
-                          onClick={() => handleEdit(comment)}
+                  {editingCommentId === comment._id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editText}
+                        onChange={(e) =>
+                          setEditText(e.target.value)
+                        }
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          onClick={handleUpdateComment}
+                          disabled={!editText.trim()}
                         >
-                          Edit
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            handleDelete(comment._id)
-                          }
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingCommentId(null);
+                            setEditText("");
+                          }}
                         >
-                          Delete
-                        </button>
+                          Cancel
+                        </Button>
                       </div>
-                    )}
-                  </>
-                )}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm">{comment.commentbody}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <button
+                            onClick={() => handleLike(comment._id)}
+                            className="flex items-center gap-1 hover:text-blue-500 transition-colors"
+                          >
+                            <ThumbsUp size={14} /> {comment.likes?.length || 0}
+                          </button>
+                          <button
+                            onClick={() => handleDislike(comment._id)}
+                            className="flex items-center gap-1 hover:text-red-500 transition-colors"
+                          >
+                            <ThumbsDown size={14} /> {comment.dislikes?.length || 0}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <button
+                            onClick={() => handleTranslate(comment._id, comment.commentbody)}
+                            className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                          >
+                            <Languages size={14} /> Translate
+                          </button>
+                          <button
+                            onClick={() => handleReport(comment._id)}
+                            className="flex items-center gap-1 hover:text-red-600 transition-colors"
+                          >
+                            <Flag size={14} /> Report
+                          </button>
+                        </div>
+
+                        {comment.userid === user?._id && (
+                          <div className="flex gap-2 ml-auto text-sm text-gray-500">
+                            <button
+                              className="hover:underline"
+                              onClick={() => handleEdit(comment)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="hover:underline"
+                              onClick={() => handleDelete(comment._id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {comment.translatedText && (
+                        <p className="text-sm text-blue-600 mt-1 italic">
+                          {comment.translatedText}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

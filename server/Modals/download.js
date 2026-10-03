@@ -7,34 +7,27 @@ const downloadSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
-
     videoId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "videofiles",
       required: true,
     },
-
-    userPlan: {
-      type: String,
-      enum: ["free", "premium"],
-      default: "free",
-    },
-
-    downloadedAt: {
+    downloadDate: {
       type: Date,
       default: Date.now,
     },
-
+    planAtDownload: {
+      type: String,
+      required: true,
+    },
     videoTitle: {
       type: String,
       required: true,
     },
-
     filename: {
       type: String,
       required: true,
     },
-
     filepath: {
       type: String,
       required: true,

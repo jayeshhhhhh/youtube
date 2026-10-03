@@ -7,6 +7,7 @@ import {
   translateComment,
   likeComment,
   dislikeComment,
+  reportComment
 } from "../controllers/comment.js";
 
 const routes = express.Router();
@@ -23,5 +24,6 @@ routes.post("/translate/:id", translateComment);
 routes.patch("/like/:id", likeComment);
 
 routes.patch("/dislike/:id", dislikeComment);
+routes.post("/report/:id", reportComment);
 
 export default routes;

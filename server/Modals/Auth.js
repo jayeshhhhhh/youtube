@@ -6,6 +6,9 @@ const userschema = mongoose.Schema({
   channelname: { type: String },
   description: { type: String },
   image: { type: String },
+  location: { type: String },
+  showLocation: { type: Boolean, default: false },
+  plan: { type: String, enum: ['free', 'premium'], default: 'free' },
   joinedon: { type: Date, default: Date.now },
 
   // Download plan

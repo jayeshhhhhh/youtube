@@ -145,8 +145,6 @@ const VideoInfo = ({ video }: any) => {
   // ================= DOWNLOAD =================
 
   const handleDownload = async () => {
-    console.log("DOWNLOAD BUTTON CLICKED");
-
     if (!user) {
       alert("Please login to download videos.");
       return;
@@ -159,40 +157,14 @@ const VideoInfo = ({ video }: any) => {
 
     try {
       setIsDownloading(true);
-
-      console.log("User ID:", user._id);
-      console.log("Video ID:", video._id);
-
-      const response = await axiosInstance.post("/download", {
-        userId: user._id,
-        videoId: video._id,
-      });
-
-      console.log("Download API response:", response.data);
-
-      if (!response.data?.fileUrl) {
-        alert("Download link was not received.");
-        return;
-      }
-
-      const link = document.createElement("a");
-
-      link.href = response.data.fileUrl;
-      link.download = video.filename || "video.mp4";
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      console.log("Download started successfully");
+      // Use direct browser download link to trigger the server's res.download()
+      window.location.assign(`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/download/${video._id}?userId=${user._id}`);
     } catch (error: any) {
       console.error("DOWNLOAD ERROR:", error);
-
       const message =
         error?.response?.data?.message ||
         error?.message ||
         "Unable to download video.";
-
       alert(message);
     } finally {
       setIsDownloading(false);
@@ -368,7 +340,6 @@ const VideoInfo = ({ video }: any) => {
             ? "Show less"
             : "Show more"}
         </Button>
-
       </div>
     </>
   );

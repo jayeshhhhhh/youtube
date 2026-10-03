@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import users from "../Modals/Auth.js";
+import Download from "../Modals/download.js";
 
 export const login = async (req, res) => {
   const { email, name, image } = req.body;
@@ -18,6 +19,7 @@ export const login = async (req, res) => {
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
+
 export const updateprofile = async (req, res) => {
   const { id: _id } = req.params;
   const { channelname, description } = req.body;
@@ -38,6 +40,23 @@ export const updateprofile = async (req, res) => {
     return res.status(201).json(updatedata);
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+export const getUserDownloads = async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(401).json({ message: "User ID is required" });
+  }
+
+  try {
+    const downloads = await Download.find({ userId: userId })
+      .populate("videoId")
+      .sort({ downloadDate: -1 });
+    return res.status(200).json(downloads);
+  } catch (error) {
+    console.error(" error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
 };

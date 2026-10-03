@@ -4,9 +4,25 @@ import { Toaster } from "@/components/ui/sonner";
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { UserProvider } from "../lib/AuthContext";
-export default function App({ Component, pageProps }: AppProps) {
+import { ThemeProvider } from "../context/ThemeContext";
+import { WatchPartyProvider } from "../context/WatchPartyContext";
+import OTPModal from "@/components/OTPModal";
+import { useUser } from "@/lib/AuthContext";
+import { useState } from "react";
+
+const AppContent = ({ Component, pageProps }: any) => {
+  const { otpPending, pendingUserId, verifyOtp, isVerifying } = useUser();
+  const [otp, setOtp] = useState("");
+
+  const handleVerify = async (otpValue: string) => {
+    const result = await verifyOtp(otpValue);
+    if (!result.success) {
+      alert(result.message);
+    }
+  };
+
   return (
-    <UserProvider>
+    <>
       <div className="min-h-screen bg-white text-black">
         <title>Your-Tube Clone</title>
         <Header />
@@ -16,6 +32,24 @@ export default function App({ Component, pageProps }: AppProps) {
           <Component {...pageProps} />
         </div>
       </div>
+      <OTPModal
+        isOpen={otpPending}
+        onClose={() => {}} // Logic to handle close if needed
+        onVerify={handleVerify}
+        loading={isVerifying}
+      />
+    </>
+  );
+};
+
+export default function App({ Component, pageProps }: AppProps) {
+  return (
+    <UserProvider>
+      <ThemeProvider>
+        <WatchPartyProvider>
+          <AppContent Component={Component} pageProps={pageProps} />
+        </WatchPartyProvider>
+      </ThemeProvider>
     </UserProvider>
   );
 }
