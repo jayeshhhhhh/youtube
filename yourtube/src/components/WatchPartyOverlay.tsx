@@ -178,10 +178,12 @@ export default function WatchPartyOverlay({
           // In a real production app, we'd iterate over active RTCPeerConnections
           // and use replaceTrack(). For this PeerJS implementation, we re-call
           // participants or signal a stream update.
-          socket.emit("signal-stream-update", {
-            roomId: socket.id,
-            type: "camera"
-          });
+          if (socket) {
+            socket.emit("signal-stream-update", {
+              roomId: socket.id,
+              type: "camera"
+            });
+          }
         }
 
         setIsScreenSharing(false);
@@ -200,10 +202,12 @@ export default function WatchPartyOverlay({
         localStreamRef.current = screenStream;
 
         // Notify others that we are now sharing screen
-        socket.emit("signal-stream-update", {
-          roomId: socket.id,
-          type: "screen"
-        });
+        if (socket) {
+          socket.emit("signal-stream-update", {
+            roomId: socket.id,
+            type: "screen"
+          });
+        }
 
         setIsScreenSharing(true);
 
