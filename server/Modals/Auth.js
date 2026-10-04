@@ -8,21 +8,19 @@ const userschema = mongoose.Schema({
   image: { type: String },
   location: { type: String },
   showLocation: { type: Boolean, default: false },
-  plan: { type: String, enum: ['free', 'premium'], default: 'free' },
+
+  // Plan and Theme
+  plan: { type: String, enum: ['free', 'bronze', 'silver', 'gold'], default: 'free' },
+  preferredTheme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto' },
+
+  // Security Tracking
+  lastLoginIp: { type: String },
+  lastLoginDevice: { type: String },
+  lastLoginLocation: { type: String },
+  otpCode: { type: String },
+  otpExpiresAt: { type: Date },
+
   joinedon: { type: Date, default: Date.now },
-
-  // Download plan
-  plan: {
-    type: String,
-    enum: ["free", "premium"],
-    default: "free",
-  },
-
-  // Premium download limit per day
-  premiumDownloadLimit: {
-    type: Number,
-    default: 5,
-  },
 });
 
 export default mongoose.model("user", userschema);
