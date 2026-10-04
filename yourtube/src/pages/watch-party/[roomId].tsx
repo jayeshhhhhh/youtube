@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import VideoPlayer from "@/components/Videopplayer";
 import WatchPartyOverlay from "@/components/WatchPartyOverlay";
 import { useWatchParty } from "@/context/WatchPartyContext";
@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default function WatchPartyPage() {
-  const { roomId } = useRouter().query as any; // simplified for example
+  const params = useParams();
+  const roomId = params.roomId as string;
   const { joinRoom, leaveRoom, roomId: activeRoomId } = useWatchParty();
   const { user } = useUser();
   const [joinCode, setJoinCode] = useState("");
