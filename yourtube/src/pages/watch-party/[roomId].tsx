@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function WatchPartyPage() {
   const params = useParams();
-  const roomId = params.roomId as string;
+  const roomId = params?.roomId as string | undefined;
   const { joinRoom, leaveRoom, roomId: activeRoomId } = useWatchParty();
   const { user } = useUser();
   const [joinCode, setJoinCode] = useState("");
