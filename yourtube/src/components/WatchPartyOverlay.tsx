@@ -13,6 +13,7 @@ import {
   VideoOff,
   PhoneOff,
   Send,
+  Monitor,
 } from "lucide-react";
 
 interface WatchPartyOverlayProps {
@@ -38,6 +39,7 @@ export default function WatchPartyOverlay({
   const [inputMessage, setInputMessage] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
 
   const [remoteStreams, setRemoteStreams] = useState<
     Record<string, MediaStream>
@@ -162,6 +164,60 @@ export default function WatchPartyOverlay({
     setIsVideoOff(!isVideoOff);
   };
 
+  const toggleScreenShare = async () => {
+    try {
+      if (isScreenSharing) {
+        // Stop screen share and return to camera
+        const stream = await getLocalStream();
+        if (stream && localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        // Update all active peer calls with the camera stream
+        if (peer) {
+          // In a real production app, we'd iterate over active RTCPeerConnections
+          // and use replaceTrack(). For this PeerJS implementation, we re-call
+          // participants or signal a stream update.
+          socket.emit("signal-stream-update", {
+            roomId: socket.id,
+            type: "camera"
+          });
+        }
+
+        setIsScreenSharing(false);
+      } else {
+        // Start screen share
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true,
+        });
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = screenStream;
+        }
+
+        // Update localStreamRef so that future calls use the screen
+        localStreamRef.current = screenStream;
+
+        // Notify others that we are now sharing screen
+        socket.emit("signal-stream-update", {
+          roomId: socket.id,
+          type: "screen"
+        });
+
+        setIsScreenSharing(true);
+
+        // Handle "Stop sharing" button from browser UI
+        screenStream.getVideoTracks()[0].onended = () => {
+          toggleScreenShare();
+        };
+      }
+    } catch (error) {
+      console.error("Screen share error:", error);
+      alert("Could not share screen. Please check permissions.");
+    }
+  };
+
   return (
     <div className="fixed inset-0 pointer-events-none flex items-end justify-end p-6 z-50">
       <div className="flex gap-6 items-end pointer-events-auto">
@@ -248,6 +304,18 @@ export default function WatchPartyOverlay({
                 ) : (
                   <Video size={14} />
                 )}
+              </button>
+
+              <button
+                onClick={toggleScreenShare}
+                className={`p-2 rounded-full ${
+                  isScreenSharing
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 dark:bg-zinc-700"
+                }`}
+                title="Share Screen"
+              >
+                <Monitor size={14} />
               </button>
 
             </div>
