@@ -220,9 +220,9 @@ const Comments = ({ videoId }: any) => {
               >
                 <option value="en">English</option>
                 <option value="hi">Hindi</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
+                <option value="mr">Marathi</option>
+                <option value="ta">Tamil</option>
+                <option value="bn">Bengali</option>
               </select>
             </div>
 
@@ -335,7 +335,7 @@ const Comments = ({ videoId }: any) => {
                           </button>
                         </div>
 
-                        {String(comment.userid) === String(user?._id) && (
+                        {(comment.userid === user?._id || String(comment.userid) === String(user?._id)) && (
                           <div className="flex gap-2 ml-auto text-sm text-gray-500">
                             <button
                               className="hover:underline"
