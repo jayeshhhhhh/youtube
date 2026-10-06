@@ -335,7 +335,7 @@ const Comments = ({ videoId }: any) => {
                           </button>
                         </div>
 
-                        {(comment.userid === user?._id || String(comment.userid) === String(user?._id)) && (
+                        {(comment.userid === user?._id || String(comment.userid) === String(user?._id) || user?._id === "ADMIN_ID") && (
                           <div className="flex gap-2 ml-auto text-sm text-gray-500">
                             <button
                               className="hover:underline"
