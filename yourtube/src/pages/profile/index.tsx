@@ -12,7 +12,8 @@ interface DownloadRecord {
   _id: string;
   videoTitle: string;
   downloadDate: string;
-  fileSize: string;
+  fileSize?: string;
+  planAtDownload?: string;
 }
 
 export default function ProfilePage() {
@@ -107,12 +108,17 @@ export default function ProfilePage() {
                         <div className="p-2 bg-white dark:bg-zinc-700 rounded shadow-sm">
                           <Video size={16} />
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm font-medium">{dl.videoTitle}</p>
                           <p className="text-[10px] text-gray-500 flex items-center gap-1">
-                            <Calendar size={10} /> {new Date(dl.downloadDate).toLocaleDateString()} • {dl.fileSize}
+                            <Calendar size={10} /> {new Date(dl.downloadDate).toLocaleDateString()} • {dl.fileSize || "N/A"}
                           </p>
                         </div>
+                        {dl.planAtDownload && (
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
+                            {dl.planAtDownload}
+                          </span>
+                        )}
                       </div>
                       <Button variant="ghost" size="sm" className="text-xs">View</Button>
                     </div>

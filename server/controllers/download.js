@@ -3,6 +3,13 @@ import download from "../Modals/download.js";
 import users from "../Modals/Auth.js";
 import video from "../Modals/video.js";
 
+const PLAN_LIMITS = {
+  free: 1,
+  bronze: 5,
+  silver: 10,
+  gold: 20,
+};
+
 export const downloadVideo = async (req, res) => {
   const { userId, videoId } = req.body;
 
@@ -42,37 +49,33 @@ export const downloadVideo = async (req, res) => {
     // Count today's downloads
     const todayDownloads = await download.countDocuments({
       userId: userId,
-      downloadedAt: {
+      downloadDate: {
         $gte: startOfDay,
         $lte: endOfDay,
       },
     });
 
-    // Set daily limit
-    const dailyLimit = user.plan === "premium"
-      ? user.premiumDownloadLimit
-      : 1;
+    // Set daily limit based on plan
+    const userPlan = user.plan || "free";
+    const dailyLimit = PLAN_LIMITS[userPlan] || 1;
 
     // Check limit
     if (todayDownloads >= dailyLimit) {
       return res.status(403).json({
-        message:
-          user.plan === "premium"
-            ? `You have reached your daily limit of ${dailyLimit} downloads.`
-            : "Free users can download only 1 video per day.",
+        message: "You have reached your daily download limit.",
         limitReached: true,
+        currentLimit: dailyLimit,
       });
     }
 
-    // Save download record
     const newDownload = await download.create({
       userId: userId,
       videoId: videoId,
-      userPlan: user.plan,
+      planAtDownload: userPlan,
       videoTitle: videoData.videotitle,
       filename: videoData.filename,
       filepath: videoData.filepath,
-      downloadedAt: new Date(),
+      downloadDate: new Date(),
     });
 
     return res.status(200).json({

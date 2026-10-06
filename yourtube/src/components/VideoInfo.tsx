@@ -157,8 +157,18 @@ const VideoInfo = ({ video }: any) => {
 
     try {
       setIsDownloading(true);
-      // Use direct browser download link to trigger the server's res.download()
-      window.location.assign(`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/download/${video._id}?userId=${user._id}`);
+
+      // 1. First, verify the limit with the backend via a POST request
+      // This allows us to catch the 403 error and show a message before the browser tries to navigate
+      const response = await axiosInstance.post(`/video/download`, {
+        userId: user._id,
+        videoId: video._id,
+      });
+
+      // 2. If the backend returns a fileUrl, trigger the download
+      if (response.data.fileUrl) {
+        window.location.assign(response.data.fileUrl);
+      }
     } catch (error: any) {
       console.error("DOWNLOAD ERROR:", error);
       const message =
