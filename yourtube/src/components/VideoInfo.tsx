@@ -160,7 +160,7 @@ const VideoInfo = ({ video }: any) => {
 
       // 1. First, verify the limit with the backend via a POST request
       // This allows us to catch the 403 error and show a message before the browser tries to navigate
-      const response = await axiosInstance.post(`/video/download`, {
+      const response = await axiosInstance.post(`/download`, {
         userId: user._id,
         videoId: video._id,
       });
