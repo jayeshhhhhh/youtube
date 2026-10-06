@@ -157,23 +157,8 @@ const VideoInfo = ({ video }: any) => {
 
     try {
       setIsDownloading(true);
-
-      // 1. Check plan limits via backend before allowing download
-      const checkRes = await axiosInstance.post("/video/request-download", {
-        userId: user._id,
-        videoId: video._id,
-      });
-
-      if (checkRes.data.success) {
-        // 2. If backend approves, trigger the actual file download
-        window.location.assign(`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/download/${video._id}?userId=${user._id}`);
-      } else {
-        // 3. Handle limit reached (e.g., Free user reached 1/day)
-        alert(checkRes.data.message || "Download limit reached for your current plan.");
-        if (confirm("Would you like to upgrade your plan to download more videos?")) {
-          window.location.href = "/upgrade";
-        }
-      }
+      // Use direct browser download link to trigger the server's res.download()
+      window.location.assign(`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/download/${video._id}?userId=${user._id}`);
     } catch (error: any) {
       console.error("DOWNLOAD ERROR:", error);
       const message =

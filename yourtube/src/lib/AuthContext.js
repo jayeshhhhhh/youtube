@@ -1,4 +1,4 @@
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { useState } from "react";
 import { createContext } from "react";
 import { provider, auth } from "./firebase";
@@ -16,6 +16,8 @@ export const UserProvider = ({ children }) => {
   const login = (userdata) => {
     setUser(userdata);
     localStorage.setItem("user", JSON.stringify(userdata));
+    localStorage.removeItem("otpPending");
+    localStorage.removeItem("pendingUserId");
   };
 
   const logout = async () => {
@@ -50,21 +52,7 @@ export const UserProvider = ({ children }) => {
 
   const handlegooglesignin = async () => {
     try {
-      const result = await signInWithPopup(auth, provider);
-      const firebaseuser = result.user;
-      const payload = {
-        email: firebaseuser.email,
-        name: firebaseuser.displayName,
-        image: firebaseuser.photoURL || "https://github.com/shadcn.png",
-      };
-      const response = await axiosInstance.post("/user/login", payload);
-
-      if (response.data.requiresOtp) {
-        setOtpPending(true);
-        setPendingUserId(response.data.userId);
-      } else {
-        login(response.data.result);
-      }
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.log(error);
     }
@@ -91,6 +79,10 @@ export const UserProvider = ({ children }) => {
           console.error(error);
           logout();
         }
+      } else {
+        // Clear OTP states if no Firebase user is present
+        setOtpPending(false);
+        setPendingUserId(null);
       }
     });
     return () => unsubcribe();
