@@ -57,12 +57,12 @@ export const downloadVideo = async (req, res) => {
 
     // Set daily limit based on plan
     const userPlan = user.plan || "free";
-    const dailyLimit = PLAN_LIMITS[userPlan] || 1;
+    const dailyLimit = PLAN_LIMITS[userPlan] || PLAN_LIMITS.free;
 
     // Check limit
     if (todayDownloads >= dailyLimit) {
       return res.status(403).json({
-        message: "You have reached your daily download limit.",
+        message: `You have reached your daily download limit of ${dailyLimit} videos.`,
         limitReached: true,
         currentLimit: dailyLimit,
       });
