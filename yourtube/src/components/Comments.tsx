@@ -192,8 +192,8 @@ const Comments = ({ videoId }: any) => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-red-600">
-        🚀 TESTING CHANGES: {comments.length} Comments
+      <h2 className="text-xl font-semibold">
+        {comments.length} Comments
       </h2>
 
       {user && (
