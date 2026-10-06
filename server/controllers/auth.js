@@ -45,15 +45,15 @@ export const login = async (req, res) => {
           await sendOTP(existingUser.email, otp);
           console.log(`OTP sent to ${existingUser.email}: ${otp}`);
         } catch (emailErr) {
-          console.error("Email sending failed, but allowing login for dev:", emailErr.message);
-          // In dev, we log the OTP so you can still log in even if email fails
+          console.error("Email sending failed:", emailErr.message);
+          // We no longer "allow login for dev" here to ensure the OTP flow is strictly tested
         }
 
         return res.status(202).json({
           requiresOtp: true,
           userId: existingUser._id,
           message: "New device or location detected. Please verify via email.",
-          devOtp: otp // Added for your testing convenience
+          devOtp: otp
         });
       }
 
