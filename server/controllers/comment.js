@@ -3,7 +3,11 @@ import mongoose from "mongoose";
 import axios from "axios";
 
 // Simple internal profanity filter to avoid "bad-words" import crashes
-const BANNED_WORDS = ["badword1", "badword2", "spam"]; // Add words as needed
+const BANNED_WORDS = [
+  "badword1", "badword2", "spam",
+  "abuse", "hate", "stupid", "idiot", "garbage", "trash",
+  "offensive1", "offensive2", "offensive3", "offensive4"
+]; // Expanded list of prohibited terms
 
 const validateComment = (text) => {
   if (!text) return { isValid: false, message: "Comment body is required" };
@@ -14,9 +18,15 @@ const validateComment = (text) => {
     return { isValid: false, message: "Your comment contains prohibited content" };
   }
 
-  // Check for spam (5+ repeated characters)
-  const spamRegex = /(.)\1{4,}/;
-  if (spamRegex.test(text)) {
+  // Check for special character spam (e.g., "!!!!", "@@@@")
+  const specialCharSpamRegex = /([!@#$%^&*(),.?":{}<>|\\/_])\1{3,}/;
+  if (specialCharSpamRegex.test(text)) {
+    return { isValid: false, message: "Your comment contains too many repeated special characters (spam)" };
+  }
+
+  // Check for general spam (any character repeated 5+ times)
+  const generalSpamRegex = /(.)\1{4,}/;
+  if (generalSpamRegex.test(text)) {
     return { isValid: false, message: "Your comment contains spam (repeated characters)" };
   }
 
