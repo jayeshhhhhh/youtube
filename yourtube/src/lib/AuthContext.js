@@ -18,6 +18,15 @@ import { useTheme } from "../context/ThemeContext";
 
 const UserContext = createContext({
   user: /** @type {any} */ (null),
+  logout: async () => {},
+  handlegooglesignin: async () => {},
+  login: () => {},
+  refreshUser: async () => {},
+  otpPending: false,
+  pendingUserId: null,
+  isVerifying: false,
+  verifyOtp: async () => ({ success: false }),
+  changeTheme: async () => ({ success: false }),
 });
 export const UserProvider = ({ children }) => {
   const { setThemePreference } = useTheme();
