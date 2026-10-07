@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useUser } from "@/lib/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import axiosInstance from "@/lib/axiosinstance";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,31 +62,17 @@ export default function ProfilePage() {
     isVerifying,
   } = useUser();
 
-  const [downloads, setDownloads] = useState<
-    DownloadRecord[]
-  >([]);
+  const { preference: selectedTheme } = useTheme();
 
+  const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [plan, setPlan] = useState("free");
   const [dailyLimit, setDailyLimit] = useState(1);
-  const [todayDownloads, setTodayDownloads] =
-    useState(0);
-  const [remainingDownloads, setRemainingDownloads] =
-    useState(1);
-
-  const [selectedTheme, setSelectedTheme] =
-    useState(user?.preferredTheme || "auto");
-
+  const [todayDownloads, setTodayDownloads] = useState(0);
+  const [remainingDownloads, setRemainingDownloads] = useState(1);
 
   const [otp, setOtp] = useState("");
   const [otpMessage, setOtpMessage] = useState("");
-
-  useEffect(() => {
-    if (user?.preferredTheme) {
-      setSelectedTheme(user.preferredTheme);
-    }
-  }, [user]);
 
   useEffect(() => {
     const fetchDownloads = async () => {
@@ -95,10 +82,9 @@ export default function ProfilePage() {
       }
 
       try {
-        const res =
-          await axiosInstance.get<DownloadResponse>(
-            `/download/${user._id}`
-          );
+        const res = await axiosInstance.get<DownloadResponse>(
+          `/download/${user._id}`
+        );
 
         setDownloads(res.data.downloads || []);
         setPlan(res.data.plan || "free");
@@ -109,18 +95,10 @@ export default function ProfilePage() {
             1
         );
 
-        setTodayDownloads(
-          res.data.todayDownloads || 0
-        );
-
-        setRemainingDownloads(
-          res.data.remainingDownloads || 0
-        );
+        setTodayDownloads(res.data.todayDownloads || 0);
+        setRemainingDownloads(res.data.remainingDownloads || 0);
       } catch (error) {
-        console.error(
-          "Error fetching downloads:",
-          error
-        );
+        console.error("Error fetching downloads:", error);
       } finally {
         setLoading(false);
       }
@@ -141,21 +119,15 @@ export default function ProfilePage() {
 
   const usedPercentage =
     dailyLimit > 0
-      ? Math.min(
-          (todayDownloads / dailyLimit) * 100,
-          100
-        )
+      ? Math.min((todayDownloads / dailyLimit) * 100, 100)
       : 0;
 
   const planName =
-    plan.charAt(0).toUpperCase() +
-    plan.slice(1);
+    plan.charAt(0).toUpperCase() + plan.slice(1);
 
   const handleThemeChange = async (
     newTheme: "light" | "dark" | "auto"
   ) => {
-    setSelectedTheme(newTheme);
-
     const result = await changeTheme(newTheme);
 
     if (!result.success) {
@@ -165,9 +137,7 @@ export default function ProfilePage() {
 
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
-      setOtpMessage(
-        "Please enter the 6-digit OTP."
-      );
+      setOtpMessage("Please enter the 6-digit OTP.");
       return;
     }
 
@@ -176,9 +146,7 @@ export default function ProfilePage() {
     const result = await verifyOtp(otp);
 
     if (!result.success) {
-      setOtpMessage(
-        result.message || "Invalid OTP"
-      );
+      setOtpMessage(result.message || "Invalid OTP");
       return;
     }
 
@@ -188,42 +156,29 @@ export default function ProfilePage() {
 
   return (
     <div className="container mx-auto py-12 px-4 space-y-8">
-
       {otpPending && (
         <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <Card className="w-full max-w-md shadow-2xl">
             <CardHeader className="text-center">
               <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
-                <ShieldCheck
-                  className="text-blue-600"
-                  size={30}
-                />
+                <ShieldCheck className="text-blue-600" size={30} />
               </div>
 
-              <CardTitle className="text-2xl">
-                Verify Your Login
-              </CardTitle>
+              <CardTitle className="text-2xl">Verify Your Login</CardTitle>
 
               <p className="text-sm text-gray-500 mt-2">
                 A new device or location was detected.
               </p>
 
               <p className="text-sm text-gray-500">
-                We sent a 6-digit OTP to your registered
-                email.
+                We sent a 6-digit OTP to your registered email.
               </p>
             </CardHeader>
 
             <CardContent className="space-y-5">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-100 dark:bg-zinc-800">
-                <Mail
-                  size={20}
-                  className="text-blue-600"
-                />
-
-                <span className="text-sm break-all">
-                  {user.email}
-                </span>
+                <Mail size={20} className="text-blue-600" />
+                <span className="text-sm break-all">{user.email}</span>
               </div>
 
               <input
@@ -232,14 +187,10 @@ export default function ProfilePage() {
                 maxLength={6}
                 value={otp}
                 onChange={(e) =>
-                  setOtp(
-                    e.target.value
-                      .replace(/\D/g, "")
-                      .slice(0, 6)
-                  )
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
                 }
                 placeholder="Enter 6-digit OTP"
-                className="w-full h-12 rounded-lg border px-4 text-center text-xl tracking-[0.4em] outline-none focus:ring-2 focus:ring-blue-500 bg-background"
+                className="w-full h-12 rounded-lg border px-s-4 text-center text-xl tracking-[0.4em] outline-none focus:ring-2 focus:ring-blue-500 bg-background"
               />
 
               {otpMessage && (
@@ -251,14 +202,9 @@ export default function ProfilePage() {
               <Button
                 className="w-full h-11"
                 onClick={handleVerifyOtp}
-                disabled={
-                  isVerifying ||
-                  otp.length !== 6
-                }
+                disabled={isVerifying || otp.length !== 6}
               >
-                {isVerifying
-                  ? "Verifying..."
-                  : "Verify & Continue"}
+                {isVerifying ? "Verifying..." : "Verify & Continue"}
               </Button>
 
               <p className="text-xs text-gray-500 text-center">
@@ -275,14 +221,8 @@ export default function ProfilePage() {
         </div>
 
         <div>
-          <h1 className="text-3xl font-bold">
-            {user.name}
-          </h1>
-
-          <p className="text-gray-500">
-            {user.email}
-          </p>
-
+          <h1 className="text-3xl font-bold">{user.name}</h1>
+          <p className="text-gray-500">{user.email}</p>
           <div className="mt-2">
             <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase">
               {planName} Plan
@@ -292,7 +232,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -303,35 +242,22 @@ export default function ProfilePage() {
 
           <CardContent className="space-y-4">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">
-                Joined
-              </span>
-
+              <span className="text-gray-500">Joined</span>
               <span>
                 {user.joinedon
-                  ? new Date(
-                      user.joinedon
-                    ).toLocaleDateString()
+                  ? new Date(user.joinedon).toLocaleDateString()
                   : "N/A"}
               </span>
             </div>
 
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">
-                Current Plan
-              </span>
-
-              <span className="font-medium capitalize">
-                {plan}
-              </span>
+              <span className="text-gray-500">Current Plan</span>
+              <span className="font-medium capitalize">{plan}</span>
             </div>
 
             <div className="border-t pt-4">
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">
-                  Today's Downloads
-                </span>
-
+                <span className="text-sm font-medium">Today's Downloads</span>
                 <span className="text-sm font-bold">
                   {todayDownloads} / {dailyLimit}
                 </span>
@@ -340,18 +266,14 @@ export default function ProfilePage() {
               <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all"
-                  style={{
-                    width: `${usedPercentage}%`,
-                  }}
+                  style={{ width: `${usedPercentage}%` }}
                 />
               </div>
 
               <p className="text-xs text-gray-500 mt-2">
                 {remainingDownloads > 0
                   ? `${remainingDownloads} download${
-                      remainingDownloads > 1
-                        ? "s"
-                        : ""
+                      remainingDownloads > 1 ? "s" : ""
                     } remaining today`
                   : "Daily download limit reached"}
               </p>
@@ -360,14 +282,9 @@ export default function ProfilePage() {
             <Button
               variant="outline"
               className="w-full mt-4"
-              onClick={() =>
-                (window.location.href =
-                  "/upgrade")
-              }
+              onClick={() => (window.location.href = "/upgrade")}
             >
-              <CreditCard
-                className="w-4 h-4 mr-2"
-              />
+              <CreditCard className="w-4 h-4 mr-2" />
               Upgrade Plan
             </Button>
           </CardContent>
@@ -389,54 +306,30 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-3 gap-2">
               <Button
-                variant={
-                  selectedTheme === "light"
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedTheme === "light" ? "default" : "outline"}
                 className="flex flex-col h-20 gap-1"
-                onClick={() =>
-                  handleThemeChange("light")
-                }
+                onClick={() => handleThemeChange("light")}
               >
                 <Sun size={20} />
-                <span className="text-xs">
-                  Light
-                </span>
+                <span className="text-xs">Light</span>
               </Button>
 
               <Button
-                variant={
-                  selectedTheme === "dark"
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedTheme === "dark" ? "default" : "outline"}
                 className="flex flex-col h-20 gap-1"
-                onClick={() =>
-                  handleThemeChange("dark")
-                }
+                onClick={() => handleThemeChange("dark")}
               >
                 <Moon size={20} />
-                <span className="text-xs">
-                  Dark
-                </span>
+                <span className="text-xs">Dark</span>
               </Button>
 
               <Button
-                variant={
-                  selectedTheme === "auto"
-                    ? "default"
-                    : "outline"
-                }
+                variant={selectedTheme === "auto" ? "default" : "outline"}
                 className="flex flex-col h-20 gap-1"
-                onClick={() =>
-                  handleThemeChange("auto")
-                }
+                onClick={() => handleThemeChange("auto")}
               >
                 <Monitor size={20} />
-                <span className="text-xs">
-                  Auto
-                </span>
+                <span className="text-xs">Auto</span>
               </Button>
             </div>
           </CardContent>
@@ -466,9 +359,7 @@ export default function ProfilePage() {
               Registered email:
             </p>
 
-            <p className="text-sm font-medium break-all">
-              {user.email}
-            </p>
+            <p className="text-sm font-medium break-all">{user.email}</p>
           </CardContent>
         </Card>
       </div>
@@ -496,14 +387,8 @@ export default function ProfilePage() {
             </div>
           ) : downloads.length === 0 ? (
             <div className="text-center py-10">
-              <Download
-                className="mx-auto mb-3 text-gray-400"
-                size={40}
-              />
-
-              <p className="text-gray-500">
-                No downloaded videos yet.
-              </p>
+              <Download className="mx-auto mb-3 text-gray-400" size={40} />
+              <p className="text-gray-500">No downloaded videos yet.</p>
             </div>
           ) : (
             <ScrollArea className="h-[500px] pr-4">
@@ -522,10 +407,7 @@ export default function ProfilePage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <FileVideo
-                            size={30}
-                            className="text-gray-400"
-                          />
+                          <FileVideo size={30} className="text-gray-400" />
                         </div>
                       )}
                     </div>
@@ -538,16 +420,12 @@ export default function ProfilePage() {
                       <div className="flex flex-col gap-1 mt-2 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Calendar size={13} />
-                          {new Date(
-                            dl.downloadDate
-                          ).toLocaleDateString()}
+                          {new Date(dl.downloadDate).toLocaleDateString()}
                         </span>
 
                         <span className="flex items-center gap-1">
                           <Clock size={13} />
-                          {new Date(
-                            dl.downloadDate
-                          ).toLocaleTimeString([], {
+                          {new Date(dl.downloadDate).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -555,30 +433,27 @@ export default function ProfilePage() {
 
                         <span className="flex items-center gap-1">
                           <Video size={13} />
-                          {dl.fileSize ||
-                            "Size unavailable"}
+                          {dl.fileSize || "Size unavailable"}
                         </span>
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end justify-between">
                       <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
-                        {dl.planAtDownload ||
-                          "free"}
+                        {dl.planAtDownload || "free"}
                       </span>
 
                       <span className="text-xs text-gray-500">
-                        Download #
-                        {dl.downloadCount || 1}
+                        Download # {dl.downloadCount || 1}
                       </span>
                     </div>
                   </div>
                 ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+              </HScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
