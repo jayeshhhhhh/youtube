@@ -87,7 +87,7 @@ const index = () => {
                 </Button>
               </div>
             </div>
-            <VideoInfo video={videos} />
+            <VideoInfo video={video} />
             <Comments videoId={id} />
           </div>
           <div className="space-y-4">
