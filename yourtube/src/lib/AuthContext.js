@@ -16,7 +16,7 @@ import { provider, auth } from "./firebase";
 import axiosInstance from "./axiosinstance";
 import { useTheme } from "../context/ThemeContext";
 
-const UserContext = createContext(null);
+const UserContext = createContext({});
 
 export const UserProvider = ({ children }) => {
   const { setThemePreference } = useTheme();
