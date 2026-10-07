@@ -12,17 +12,13 @@ const downloadSchema = new mongoose.Schema(
       ref: "videofiles",
       required: true,
     },
-    downloadDate: {
-      type: Date,
-      default: Date.now,
-    },
-    planAtDownload: {
-      type: String,
-      required: true,
-    },
     videoTitle: {
       type: String,
       required: true,
+    },
+    thumbnail: {
+      type: String,
+      default: "",
     },
     filename: {
       type: String,
@@ -32,10 +28,30 @@ const downloadSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    fileSize: {
+      type: String,
+      default: "",
+    },
+    planAtDownload: {
+      type: String,
+      enum: ["free", "bronze", "silver", "gold"],
+      default: "free",
+      required: true,
+    },
+    downloadDate: {
+      type: Date,
+      default: Date.now,
+    },
+    downloadCount: {
+      type: Number,
+      default: 1,
+    },
   },
   {
     timestamps: true,
   }
 );
+
+downloadSchema.index({ userId: 1, downloadDate: -1 });
 
 export default mongoose.model("download", downloadSchema);

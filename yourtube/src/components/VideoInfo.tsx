@@ -1,358 +1,294 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
-import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Button } from "./ui/button";
-import {
-  Clock,
-  Download,
-  MoreHorizontal,
-  Share,
-  ThumbsDown,
-  ThumbsUp,
-} from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Download,
+  Calendar,
+  Video,
+  User,
+  CreditCard,
+  Clock,
+} from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-const VideoInfo = ({ video }: any) => {
-  const [likes, setlikes] = useState(video.Like || 0);
-  const [dislikes, setDislikes] = useState(video.Dislike || 0);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isDisliked, setIsDisliked] = useState(false);
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const [isWatchLater, setIsWatchLater] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
+interface DownloadRecord {
+  _id: string;
+  videoTitle: string;
+  thumbnail?: string;
+  downloadDate: string;
+  fileSize?: string;
+  planAtDownload?: string;
+  downloadCount?: number;
+}
 
+export default function ProfilePage() {
   const { user } = useUser();
 
-  // ================= UPDATE VIDEO DATA =================
+  const [downloads, setDownloads] = useState<DownloadRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [plan, setPlan] = useState("free");
+  const [dailyLimit, setDailyLimit] = useState(1);
+  const [todayDownloads, setTodayDownloads] = useState(0);
+  const [remainingDownloads, setRemainingDownloads] =
+    useState(1);
 
   useEffect(() => {
-    setlikes(video.Like || 0);
-    setDislikes(video.Dislike || 0);
-    setIsLiked(false);
-    setIsDisliked(false);
-  }, [video]);
-
-  // ================= VIEWS / HISTORY =================
-
-  useEffect(() => {
-    const handleviews = async () => {
-      if (!video?._id) return;
+    const fetchDownloads = async () => {
+      if (!user?._id) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        if (user) {
-          await axiosInstance.post(`/history/${video._id}`, {
-            userId: user._id,
-          });
-        } else {
-          await axiosInstance.post(`/history/views/${video._id}`);
-        }
+        const res = await axiosInstance.get(
+          `/download/${user._id}`
+        );
+
+        setDownloads(res.data.downloads || []);
+        setPlan(res.data.plan || "free");
+        setDailyLimit(res.data.dailyLimit || 1);
+        setTodayDownloads(res.data.todayDownloads || 0);
+        setRemainingDownloads(
+          res.data.remainingDownloads ?? 0
+        );
       } catch (error) {
-        console.log("View error:", error);
+        console.error(
+          "Error fetching downloads:",
+          error
+        );
+      } finally {
+        setLoading(false);
       }
     };
 
-    handleviews();
-  }, [user, video]);
+    fetchDownloads();
+  }, [user]);
 
-  // ================= LIKE =================
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500">
+          Please login to view your profile.
+        </p>
+      </div>
+    );
+  }
 
-  const handleLike = async () => {
-    if (!user) {
-      alert("Please login first.");
-      return;
-    }
+  const planName =
+    plan.charAt(0).toUpperCase() + plan.slice(1);
 
-    try {
-      const res = await axiosInstance.post(`/like/${video._id}`, {
-        userId: user._id,
-      });
-
-      if (res.data.liked) {
-        if (isLiked) {
-          setlikes((prev: number) => prev - 1);
-          setIsLiked(false);
-        } else {
-          setlikes((prev: number) => prev + 1);
-          setIsLiked(true);
-
-          if (isDisliked) {
-            setDislikes((prev: number) => prev - 1);
-            setIsDisliked(false);
-          }
-        }
-      }
-    } catch (error) {
-      console.log("Like error:", error);
-    }
-  };
-
-  // ================= DISLIKE =================
-
-  const handleDislike = async () => {
-    if (!user) {
-      alert("Please login first.");
-      return;
-    }
-
-    try {
-      const res = await axiosInstance.post(`/like/${video._id}`, {
-        userId: user._id,
-      });
-
-      if (!res.data.liked) {
-        if (isDisliked) {
-          setDislikes((prev: number) => prev - 1);
-          setIsDisliked(false);
-        } else {
-          setDislikes((prev: number) => prev + 1);
-          setIsDisliked(true);
-
-          if (isLiked) {
-            setlikes((prev: number) => prev - 1);
-            setIsLiked(false);
-          }
-        }
-      }
-    } catch (error) {
-      console.log("Dislike error:", error);
-    }
-  };
-
-  // ================= WATCH LATER =================
-
-  const handleWatchLater = async () => {
-    if (!user) {
-      alert("Please login first.");
-      return;
-    }
-
-    try {
-      const res = await axiosInstance.post(`/watch/${video._id}`, {
-        userId: user._id,
-      });
-
-      if (res.data.watchlater) {
-        setIsWatchLater(!isWatchLater);
-      } else {
-        setIsWatchLater(false);
-      }
-    } catch (error) {
-      console.log("Watch Later error:", error);
-    }
-  };
-
-  // ================= DOWNLOAD =================
-
-  const handleDownload = async () => {
-    if (!user) {
-      alert("Please login to download videos.");
-      return;
-    }
-
-    if (!video?._id) {
-      alert("Video information is missing.");
-      return;
-    }
-
-    try {
-      setIsDownloading(true);
-
-      // 1. First, verify the limit with the backend via a POST request
-      // This allows us to catch the 403 error and show a message before the browser tries to navigate
-      const response = await axiosInstance.post(`/download`, {
-        userId: user._id,
-        videoId: video._id,
-      });
-
-      // 2. If the backend returns a fileUrl, trigger the download
-      if (response.data.fileUrl) {
-        window.location.assign(response.data.fileUrl);
-      }
-    } catch (error: any) {
-      console.error("DOWNLOAD ERROR:", error);
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Unable to download video.";
-      alert(message);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // ================= UI =================
+  const percentage =
+    dailyLimit > 0
+      ? Math.min(
+          (todayDownloads / dailyLimit) * 100,
+          100
+        )
+      : 0;
 
   return (
-    <>
-      {/* VIDEO TITLE */}
-      <h1 className="text-xl font-semibold text-foreground mb-4">
-        {video.videotitle}
-      </h1>
-
-      {/* CHANNEL + BUTTONS */}
-      <div className="flex items-center justify-between">
-        {/* CHANNEL */}
-        <div className="flex items-center gap-4">
-          <Avatar className="w-10 h-10">
-            <AvatarFallback>
-              {video.videochanel?.[0]?.toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-
-          <div>
-            <h3 className="font-medium">{video.videochanel}</h3>
-
-            <p className="text-sm text-gray-600">
-              1.2M subscribers
-            </p>
-          </div>
-
-          <Button className="ml-4">
-            Subscribe
-          </Button>
+    <div className="container mx-auto py-12 px-4 space-y-8">
+      <div className="flex items-center gap-6 mb-8">
+        <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">
+          {user.name?.[0] || "U"}
         </div>
 
-        {/* ACTION BUTTONS */}
-        <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-3xl font-bold">
+            {user.name}
+          </h1>
 
-          {/* LIKE + DISLIKE */}
-          <div className="flex items-center bg-gray-100 rounded-full">
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-l-full"
-              onClick={handleLike}
-            >
-              <ThumbsUp
-                className={`w-5 h-5 mr-2 ${
-                  isLiked ? "fill-black text-black" : ""
-                }`}
-              />
-
-              {likes.toLocaleString()}
-            </Button>
-
-            <div className="w-px h-6 bg-gray-300" />
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-r-full"
-              onClick={handleDislike}
-            >
-              <ThumbsDown
-                className={`w-5 h-5 mr-2 ${
-                  isDisliked ? "fill-black text-black" : ""
-                }`}
-              />
-
-              {dislikes.toLocaleString()}
-            </Button>
-
-          </div>
-
-          {/* WATCH LATER */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`bg-gray-100 rounded-full ${
-              isWatchLater ? "text-primary" : ""
-            }`}
-            onClick={handleWatchLater}
-          >
-            <Clock className="w-5 h-5 mr-2" />
-
-            {isWatchLater ? "Saved" : "Watch Later"}
-          </Button>
-
-          {/* SHARE */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="bg-gray-100 rounded-full"
-          >
-            <Share className="w-5 h-5 mr-2" />
-
-            Share
-          </Button>
-
-          {/* DOWNLOAD */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="bg-gray-100 rounded-full"
-            onClick={handleDownload}
-            disabled={isDownloading}
-          >
-            <Download className="w-5 h-5 mr-2" />
-
-            {isDownloading ? "Downloading..." : "Download"}
-          </Button>
-
-          {/* MORE */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-gray-100 rounded-full"
-          >
-            <MoreHorizontal className="w-5 h-5" />
-          </Button>
-
-        </div>
-      </div>
-
-      {/* DESCRIPTION / VIEWS */}
-      <div className="bg-gray-100 rounded-lg p-4 mt-4">
-
-        <div className="flex gap-4 text-sm font-medium mb-2">
-
-          <span>
-            {video.views?.toLocaleString() || 0} views
-          </span>
-
-          <span>
-            {video.createdAt
-              ? formatDistanceToNow(
-                  new Date(video.createdAt)
-                )
-              : "Recently"}{" "}
-            ago
-          </span>
-
-        </div>
-
-        <div
-          className={`text-sm ${
-            showFullDescription
-              ? ""
-              : "line-clamp-3"
-          }`}
-        >
-          <p>
-            Sample video description. This would contain
-            the actual video description from the database.
+          <p className="text-gray-500">
+            {user.email}
           </p>
+
+          <div className="mt-2 flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-bold uppercase">
+              {planName} Plan
+            </span>
+          </div>
         </div>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2 p-0 h-auto font-medium"
-          onClick={() =>
-            setShowFullDescription(
-              !showFullDescription
-            )
-          }
-        >
-          {showFullDescription
-            ? "Show less"
-            : "Show more"}
-        </Button>
       </div>
-    </>
-  );
-};
 
-export default VideoInfo;
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User size={20} />
+              Account Details
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">
+                Joined
+              </span>
+
+              <span>
+                {user.joinedon
+                  ? new Date(
+                      user.joinedon
+                    ).toLocaleDateString()
+                  : "N/A"}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">
+                Plan
+              </span>
+
+              <span className="font-medium capitalize">
+                {plan}
+              </span>
+            </div>
+
+            <div className="border-t pt-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-500">
+                  Downloads Today
+                </span>
+
+                <span className="font-semibold">
+                  {todayDownloads} / {dailyLimit}
+                </span>
+              </div>
+
+              <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-2">
+                <div
+                  className="bg-primary h-2 rounded-full transition-all"
+                  style={{
+                    width: `${percentage}%`,
+                  }}
+                />
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                {remainingDownloads > 0
+                  ? `${remainingDownloads} download${
+                      remainingDownloads !== 1
+                        ? "s"
+                        : ""
+                    } remaining today`
+                  : "Daily download limit reached"}
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={() =>
+                (window.location.href = "/upgrade")
+              }
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Upgrade Plan
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Download size={20} />
+              Download History
+            </CardTitle>
+          </CardHeader>
+
+          <CardContent>
+            {loading ? (
+              <p className="text-center text-gray-500">
+                Loading downloads...
+              </p>
+            ) : downloads.length === 0 ? (
+              <div className="text-center py-8">
+                <Download
+                  size={40}
+                  className="mx-auto mb-3 text-gray-400"
+                />
+
+                <p className="text-gray-500">
+                  No downloaded videos found.
+                </p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[400px] pr-4">
+                <div className="space-y-3">
+                  {downloads.map((dl) => (
+                    <div
+                      key={dl._id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800 rounded-lg border border-gray-200 dark:border-zinc-700"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-24 h-14 rounded overflow-hidden bg-gray-200 dark:bg-zinc-700 flex-shrink-0">
+                          {dl.thumbnail ? (
+                            <img
+                              src={dl.thumbnail}
+                              alt={dl.videoTitle}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Video size={20} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {dl.videoTitle}
+                          </p>
+
+                          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                            <Calendar size={10} />
+                            {new Date(
+                              dl.downloadDate
+                            ).toLocaleDateString()}
+                          </p>
+
+                          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                            <Clock size={10} />
+                            {new Date(
+                              dl.downloadDate
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+
+                          <p className="text-[10px] text-gray-500">
+                            {dl.fileSize || "Size unavailable"}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 ml-2">
+                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase">
+                            {dl.planAtDownload || "free"}
+                          </span>
+
+                          <span className="text-[10px] text-gray-500">
+                            Download #
+                            {dl.downloadCount || 1}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
