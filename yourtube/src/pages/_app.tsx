@@ -26,7 +26,7 @@ const AppContent = ({ Component, pageProps }: any) => {
 
   return (
     <>
-      <div className="min-h-screen bg-white text-black">
+   <div className="min-h-screen bg-white text-black dark:bg-[#181818] dark:text-black">
         <title>Your-Tube Clone</title>
 
         <Header />

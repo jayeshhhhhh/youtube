@@ -25,54 +25,25 @@ export const UserProvider = ({ children }) => {
   const [otpPending, setOtpPending] = useState(false);
   const [pendingUserId, setPendingUserId] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-const now = new Date();
-const indiaTime = new Intl.DateTimeFormat("en-IN", {
-  timeZone: "Asia/Kolkata",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-}).formatToParts(now);
 
-const hour = Number(
-  indiaTime.find((part) => part.type === "hour")?.value
-);
-
-const minute = Number(
-  indiaTime.find((part) => part.type === "minute")?.value
-);
-
-const currentMinutes = hour * 60 + minute;
-
-const loginTheme =
-  currentMinutes >= 600 && currentMinutes < 720
-    ? "light"
-    : "dark";
   const login = (userdata, selectedTheme) => {
-    setUser(userdata);
+  setUser(userdata);
 
-    const preferredTheme =
-      userdata?.preferredTheme || "auto";
+  const preferredTheme =
+    userdata?.preferredTheme || "auto";
 
-    if (
-      preferredTheme === "light" ||
-      preferredTheme === "dark" ||
-      preferredTheme === "auto"
-    ) {
-      setThemePreference(preferredTheme);
-    } else if (selectedTheme) {
-      setThemePreference(selectedTheme);
-    } else {
-      setThemePreference("auto");
-    }
+  setThemePreference(preferredTheme);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(userdata)
-    );
+  localStorage.setItem(
+    "user",
+    JSON.stringify(userdata)
+  );
 
-    localStorage.removeItem("otpPending");
-    localStorage.removeItem("pendingUserId");
-  };
+  localStorage.removeItem("otpPending");
+  localStorage.removeItem("pendingUserId");
+};
+
+   
 
   const refreshUser = async () => {
     if (!user?._id) return;

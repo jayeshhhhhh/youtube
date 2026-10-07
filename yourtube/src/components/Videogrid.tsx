@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import Videocard from "./videocard";
 import axiosInstance from "@/lib/axiosinstance";
@@ -13,18 +14,11 @@ const Videogrid = () => {
 
         console.log("API Response:", res.data);
 
-        // If backend returns array
         if (Array.isArray(res.data)) {
           setvideo(res.data);
-        }
-
-        // If backend returns { videos: [...] }
-        else if (Array.isArray(res.data.videos)) {
+        } else if (Array.isArray(res.data.videos)) {
           setvideo(res.data.videos);
-        }
-
-        // Otherwise
-        else {
+        } else {
           setvideo([]);
         }
       } catch (error) {
@@ -39,17 +33,21 @@ const Videogrid = () => {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="text-black dark:text-white">
+        Loading...
+      </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 text-black dark:text-white">
       {videos.length > 0 ? (
         videos.map((video: any) => (
           <Videocard key={video._id} video={video} />
         ))
       ) : (
-        <h2 className="text-center col-span-full">
+        <h2 className="text-center col-span-full text-black dark:text-white">
           No Videos Found
         </h2>
       )}
@@ -58,3 +56,4 @@ const Videogrid = () => {
 };
 
 export default Videogrid;
+

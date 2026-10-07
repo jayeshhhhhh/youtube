@@ -94,6 +94,7 @@ export default function ProfilePage() {
             planLimits[res.data.plan] ||
             1
         );
+        
 
         setTodayDownloads(res.data.todayDownloads || 0);
         setRemainingDownloads(res.data.remainingDownloads || 0);

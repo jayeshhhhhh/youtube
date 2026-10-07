@@ -89,9 +89,15 @@ const validateComment = (text) => {
   const normalizedText = text.toLowerCase().trim();
 
   const containsProfanity = BANNED_WORDS.some(
-    (word) =>
-      normalizedText.includes(word.toLowerCase())
-  );
+  (word) => {
+    const regex = new RegExp(
+      `(^|\\s)${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\s|$)`,
+      "i"
+    );
+
+    return regex.test(normalizedText);
+  }
+);
 
   if (containsProfanity) {
     return {
