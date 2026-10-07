@@ -9,18 +9,33 @@ const userschema = mongoose.Schema({
   location: { type: String },
   showLocation: { type: Boolean, default: false },
 
-  // Plan and Theme
-  plan: { type: String, enum: ['free', 'bronze', 'silver', 'gold'], default: 'free' },
-  preferredTheme: { type: String, enum: ['light', 'dark', 'auto'], default: 'auto' },
+  plan: {
+    type: String,
+    enum: ["free", "bronze", "silver", "gold"],
+    default: "free",
+  },
 
-  // Security Tracking
+  planExpiry: {
+    type: Date,
+  },
+
+  preferredTheme: {
+    type: String,
+    enum: ["light", "dark", "auto"],
+    default: "auto",
+  },
+
   lastLoginIp: { type: String },
   lastLoginDevice: { type: String },
   lastLoginLocation: { type: String },
+
   otpCode: { type: String },
   otpExpiresAt: { type: Date },
 
-  joinedon: { type: Date, default: Date.now },
+  joinedon: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 export default mongoose.model("user", userschema);

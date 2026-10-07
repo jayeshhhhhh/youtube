@@ -1,13 +1,6 @@
-import Razorpay from "razorpay";
 import User from "../Modals/Auth.js";
 import Payment from "../Modals/payment.js";
-import crypto from "crypto";
 import { sendPaymentConfirmation } from "../utils/email.js";
-
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 const PLAN_PRICES = {
   bronze: 499,
@@ -16,65 +9,98 @@ const PLAN_PRICES = {
 };
 
 export const createOrder = async (req, res) => {
-  const { plan } = req.body;
+  const { plan, userId } = req.body;
+
   if (!PLAN_PRICES[plan]) {
     return res.status(400).json({ message: "Invalid plan selected" });
   }
 
-  try {
-    const options = {
-      amount: PLAN_PRICES[plan] * 100, // amount in smallest currency unit (paise)
-      currency: "INR",
-      receipt: `receipt_${Date.now()}`,
-    };
+  if (!userId) {
+    return res.status(400).json({ message: "User ID is required" });
+  }
 
-    const order = await razorpay.orders.create(options);
-    return res.status(200).json(order);
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const orderId = `demo_order_${Date.now()}`;
+
+    return res.status(200).json({
+      id: orderId,
+      amount: PLAN_PRICES[plan] * 100,
+      currency: "INR",
+      plan,
+      demo: true,
+    });
   } catch (error) {
-    console.error("Razorpay Order Error:", error);
+    console.error("Demo Order Error:", error);
     return res.status(500).json({ message: "Failed to create order" });
   }
 };
 
 export const verifyPayment = async (req, res) => {
   const {
-    razorpay_order_id,
-    razorpay_payment_id,
-    razorpay_signature,
+    demo_order_id,
     userId,
     plan,
   } = req.body;
 
+  if (!demo_order_id || !userId || !PLAN_PRICES[plan]) {
+    return res.status(400).json({
+      message: "Invalid payment details",
+    });
+  }
+
   try {
-    const sign = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(sign)
-      .digest("hex");
+    const user = await User.findById(userId);
 
-    if (razorpay_signature === expectedSignature) {
-      // 1. Update User Plan
-      const user = await User.findByIdAndUpdate(userId, { plan: plan }, { new: true });
-      if (!user) return res.status(404).json({ message: "User not found" });
-
-      // 2. Record Payment
-      await Payment.create({
-        userId,
-        plan,
-        amount: PLAN_PRICES[plan],
-        transactionId: razorpay_payment_id,
-        status: "captured",
-      });
-
-      // 3. Send Confirmation Email
-      await sendPaymentConfirmation(user.email, plan, PLAN_PRICES[plan], razorpay_payment_id);
-
-      return res.status(200).json({ message: "Payment successful and plan upgraded!" });
-    } else {
-      return res.status(400).json({ message: "Invalid payment signature" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
+
+    const transactionId = `demo_payment_${Date.now()}`;
+
+    const planExpiry = new Date();
+    planExpiry.setDate(planExpiry.getDate() + 30);
+
+    user.plan = plan;
+    user.planExpiry = planExpiry;
+
+    await user.save();
+
+    await Payment.create({
+      userId,
+      plan,
+      amount: PLAN_PRICES[plan],
+      transactionId,
+      orderId: demo_order_id,
+      status: "captured",
+    });
+
+    try {
+      await sendPaymentConfirmation(
+        user.email,
+        plan,
+        PLAN_PRICES[plan],
+        transactionId
+      );
+    } catch (emailError) {
+      console.error("Email Error:", emailError);
+    }
+
+    return res.status(200).json({
+      message: "Demo payment successful and plan upgraded!",
+      plan,
+      transactionId,
+      planExpiry,
+    });
   } catch (error) {
-    console.error("Payment Verification Error:", error);
-    return res.status(500).json({ message: "Something went wrong during verification" });
+    console.error("Demo Payment Verification Error:", error);
+    return res.status(500).json({
+      message: "Something went wrong during payment",
+    });
   }
 };

@@ -75,7 +75,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-screen">
         <p className="text-gray-500">
           Please login to view your profile.
         </p>
@@ -97,7 +97,7 @@ export default function ProfilePage() {
   return (
     <div className="container mx-auto py-12 px-4 space-y-8">
       <div className="flex items-center gap-6 mb-8">
-        <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">
+        <div className="w-18 h-18  rounded-full bg-primary flex items-center justify-center text-black text-xl font-bold border-4 border-white shadow-lg">
           {user.name?.[0] || "U"}
         </div>
 
@@ -118,8 +118,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <Card className="h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User size={20} />
@@ -194,10 +194,9 @@ export default function ProfilePage() {
               Upgrade Plan
             </Button>
           </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
+        </Card >
+        <Card className="md:col-span-2 h-fit">
+          <CardHeader >
             <CardTitle className="flex items-center gap-2">
               <Download size={20} />
               Download History
@@ -221,7 +220,7 @@ export default function ProfilePage() {
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[220px] pr-4">
                 <div className="space-y-3">
                   {downloads.map((dl) => (
                     <div

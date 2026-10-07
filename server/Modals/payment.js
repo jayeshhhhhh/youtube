@@ -20,6 +20,10 @@ const paymentSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    orderId: {
+      type: String,
+      required: true,
+    },
     status: {
       type: String,
       enum: ["captured", "failed", "refunded"],
