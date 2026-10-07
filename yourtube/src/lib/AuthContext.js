@@ -1,3 +1,4 @@
+
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -13,141 +14,133 @@ import {
 
 import { provider, auth } from "./firebase";
 import axiosInstance from "./axiosinstance";
+import { useTheme } from "../context/ThemeContext";
 
-const UserContext = createContext();
+const UserContext = createContext(null);
 
-const applyTheme = (theme) => {
-  if (typeof window === "undefined") return;
+export const UserProvider = ({ children }) => {
+  const { setThemePreference } = useTheme();
 
-  const root = document.documentElement;
-
-  root.classList.remove("light", "dark");
-
-  if (theme === "dark") {
-    root.classList.add("dark");
-  } else {
-    root.classList.add("light");
-  }
-
-  localStorage.setItem("theme", theme);
-};
-
-const getAutomaticTheme = () => {
-  const now = new Date();
-
-  const parts = new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-
-  const hour = Number(
-    parts.find((part) => part.type === "hour")?.value || 0
-  );
-
-  const minute = Number(
-    parts.find((part) => part.type === "minute")?.value || 0
-  );
-
-  const totalMinutes = hour * 60 + minute;
-
-  if (
-    totalMinutes >= 10 * 60 &&
-    totalMinutes <= 12 * 60
-  ) {
-    return "light";
-  }
-
-  return "dark";
-};
-
-const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [otpPending, setOtpPending] = useState(false);
   const [pendingUserId, setPendingUserId] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [theme, setTheme] = useState("dark");
+const now = new Date();
+const indiaTime = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+}).formatToParts(now);
 
+const hour = Number(
+  indiaTime.find((part) => part.type === "hour")?.value
+);
+
+const minute = Number(
+  indiaTime.find((part) => part.type === "minute")?.value
+);
+
+const currentMinutes = hour * 60 + minute;
+
+const loginTheme =
+  currentMinutes >= 600 && currentMinutes < 720
+    ? "light"
+    : "dark";
   const login = (userdata, selectedTheme) => {
     setUser(userdata);
 
-    let finalTheme = selectedTheme;
+    const preferredTheme =
+      userdata?.preferredTheme || "auto";
 
-    if (!finalTheme) {
-      if (userdata?.preferredTheme === "light") {
-        finalTheme = "light";
-      } else if (userdata?.preferredTheme === "dark") {
-        finalTheme = "dark";
-      } else {
-        finalTheme = getAutomaticTheme();
-      }
+    if (
+      preferredTheme === "light" ||
+      preferredTheme === "dark" ||
+      preferredTheme === "auto"
+    ) {
+      setThemePreference(preferredTheme);
+    } else if (selectedTheme) {
+      setThemePreference(selectedTheme);
+    } else {
+      setThemePreference("auto");
     }
 
-    setTheme(finalTheme);
-    applyTheme(finalTheme);
+    localStorage.setItem(
+      "user",
+      JSON.stringify(userdata)
+    );
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "user",
-        JSON.stringify(userdata)
+    localStorage.removeItem("otpPending");
+    localStorage.removeItem("pendingUserId");
+  };
+
+  const refreshUser = async () => {
+    if (!user?._id) return;
+
+    try {
+      const response = await axiosInstance.get(
+        `/user/${user._id}`
       );
 
-      localStorage.setItem("theme", finalTheme);
+      const updatedUser = response.data;
 
-      localStorage.removeItem("otpPending");
-      localStorage.removeItem("pendingUserId");
+      setUser(updatedUser);
+
+      localStorage.setItem(
+        "user",
+        JSON.stringify(updatedUser)
+      );
+
+      if (updatedUser?.preferredTheme) {
+        setThemePreference(
+          updatedUser.preferredTheme
+        );
+      }
+
+      return updatedUser;
+    } catch (error) {
+      console.error(
+        "User refresh error:",
+        error
+      );
     }
   };
 
-  const changeTheme = async (newTheme) => {
-    if (
-      newTheme !== "light" &&
-      newTheme !== "dark" &&
-      newTheme !== "auto"
-    ) {
+  const changeTheme = async (selectedTheme) => {
+    setThemePreference(selectedTheme);
+
+    if (!user?._id) {
       return {
-        success: false,
-        message: "Invalid theme",
+        success: true,
       };
     }
 
     try {
-      if (newTheme === "auto") {
-        const automaticTheme = getAutomaticTheme();
-
-        applyTheme(automaticTheme);
-        setTheme(automaticTheme);
-      } else {
-        applyTheme(newTheme);
-        setTheme(newTheme);
-      }
-
-      if (user?._id) {
-        const response = await axiosInstance.patch(
+      const response =
+        await axiosInstance.patch(
           `/user/update/${user._id}`,
           {
-            preferredTheme: newTheme,
+            preferredTheme: selectedTheme,
           }
         );
 
-        const updatedUser = response.data;
+      const updatedUser = response.data;
 
-        setUser(updatedUser);
+      setUser(updatedUser);
 
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            "user",
-            JSON.stringify(updatedUser)
-          );
-        }
-      }
+      localStorage.setItem(
+        "user",
+        JSON.stringify(updatedUser)
+      );
 
       return {
         success: true,
       };
     } catch (error) {
-      console.error("Theme update error:", error);
+      console.error(
+        "Theme update error:",
+        error
+      );
 
       return {
         success: false,
@@ -163,36 +156,41 @@ const UserProvider = ({ children }) => {
     setOtpPending(false);
     setPendingUserId(null);
 
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("user");
-      localStorage.removeItem("otpPending");
-      localStorage.removeItem("pendingUserId");
-      localStorage.removeItem("theme");
-    }
+    localStorage.removeItem("user");
+    localStorage.removeItem("otpPending");
+    localStorage.removeItem("pendingUserId");
 
-    applyTheme("dark");
+    setThemePreference("auto");
 
     try {
       await signOut(auth);
     } catch (error) {
       console.error(
-        "Error during sign out:",
+        "Logout error:",
         error
       );
     }
   };
 
   const verifyOtp = async (otp) => {
+    if (!pendingUserId) {
+      return {
+        success: false,
+        message: "Verification session expired",
+      };
+    }
+
     setIsVerifying(true);
 
     try {
-      const response = await axiosInstance.post(
-        "/user/verify-otp",
-        {
-          userId: pendingUserId,
-          otp: String(otp),
-        }
-      );
+      const response =
+        await axiosInstance.post(
+          "/user/verify-otp",
+          {
+            userId: pendingUserId,
+            otp: String(otp).trim(),
+          }
+        );
 
       login(
         response.data.result,
@@ -202,17 +200,15 @@ const UserProvider = ({ children }) => {
       setOtpPending(false);
       setPendingUserId(null);
 
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("otpPending");
-        localStorage.removeItem("pendingUserId");
-      }
+      localStorage.removeItem("otpPending");
+      localStorage.removeItem("pendingUserId");
 
       return {
         success: true,
       };
     } catch (error) {
       console.error(
-        "OTP Verification Error:",
+        "OTP verification error:",
         error
       );
 
@@ -229,17 +225,11 @@ const UserProvider = ({ children }) => {
 
   const handlegooglesignin = async () => {
     try {
-      console.log("Starting Google Sign-In...");
-
-      const result = await signInWithPopup(
-        auth,
-        provider
-      );
-
-      console.log(
-        "Google Sign-In successful:",
-        result.user
-      );
+      const result =
+        await signInWithPopup(
+          auth,
+          provider
+        );
 
       return {
         success: true,
@@ -263,99 +253,86 @@ const UserProvider = ({ children }) => {
 
   useEffect(() => {
     const savedUser =
-      typeof window !== "undefined"
-        ? localStorage.getItem("user")
-        : null;
+      localStorage.getItem("user");
 
-    const savedTheme =
-      typeof window !== "undefined"
-        ? localStorage.getItem("theme")
-        : null;
+    const savedOtpPending =
+      localStorage.getItem("otpPending");
+
+    const savedPendingUserId =
+      localStorage.getItem("pendingUserId");
 
     if (savedUser) {
       try {
-        const parsedUser = JSON.parse(savedUser);
+        const parsedUser =
+          JSON.parse(savedUser);
 
         setUser(parsedUser);
 
-        if (
-          parsedUser.preferredTheme === "light"
-        ) {
-          setTheme("light");
-          applyTheme("light");
-        } else if (
-          parsedUser.preferredTheme === "dark"
-        ) {
-          setTheme("dark");
-          applyTheme("dark");
-        } else if (savedTheme) {
-          setTheme(savedTheme);
-          applyTheme(savedTheme);
-        } else {
-          const automaticTheme =
-            getAutomaticTheme();
-
-          setTheme(automaticTheme);
-          applyTheme(automaticTheme);
-        }
+        setThemePreference(
+          parsedUser?.preferredTheme || "auto"
+        );
       } catch (error) {
         console.error(
-          "Saved user parsing error:",
+          "Saved user error:",
           error
         );
       }
     } else {
-      const automaticTheme =
-        getAutomaticTheme();
-
-      setTheme(automaticTheme);
-      applyTheme(automaticTheme);
+      setThemePreference("auto");
     }
 
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (firebaseuser) => {
-        if (!firebaseuser) {
-          setUser(null);
-          setOtpPending(false);
-          setPendingUserId(null);
-          return;
-        }
+    if (
+      savedOtpPending === "true" &&
+      savedPendingUserId
+    ) {
+      setOtpPending(true);
+      setPendingUserId(
+        savedPendingUserId
+      );
+    }
 
-        try {
-          console.log(
-            "Firebase user:",
-            firebaseuser.email
-          );
+    const unsubscribe =
+      onAuthStateChanged(
+        auth,
+        async (firebaseuser) => {
+          if (!firebaseuser) {
+            return;
+          }
 
-          const payload = {
-            email: firebaseuser.email,
-            name: firebaseuser.displayName,
-            image:
-              firebaseuser.photoURL ||
-              "https://github.com/shadcn.png",
-          };
+          if (
+            localStorage.getItem(
+              "otpPending"
+            ) === "true"
+          ) {
+            return;
+          }
 
-          const response =
-            await axiosInstance.post(
-              "/user/login",
-              payload
-            );
+          try {
+            const payload = {
+              email:
+                firebaseuser.email,
+              name:
+                firebaseuser.displayName,
+              image:
+                firebaseuser.photoURL ||
+                "https://github.com/shadcn.png",
+            };
 
-          console.log(
-            "Backend login response:",
-            response.data
-          );
-
-          if (response.data.requiresOtp) {
-            setOtpPending(true);
-            setPendingUserId(
-              response.data.userId
-            );
+            const response =
+              await axiosInstance.post(
+                "/user/login",
+                payload
+              );
 
             if (
-              typeof window !== "undefined"
+              response.data.requiresOtp
             ) {
+              setOtpPending(true);
+
+              setPendingUserId(
+                response.data.userId
+              );
+
               localStorage.setItem(
                 "otpPending",
                 "true"
@@ -365,23 +342,23 @@ const UserProvider = ({ children }) => {
                 "pendingUserId",
                 response.data.userId
               );
+
+              return;
             }
-          } else {
+
             login(
               response.data.result,
               response.data.selectedTheme
             );
+          } catch (error) {
+            console.error(
+              "Backend Login Error:",
+              error.response?.data ||
+                error
+            );
           }
-        } catch (error) {
-          console.error(
-            "Backend Login Error:",
-            error.response?.data || error
-          );
-
-          await logout();
         }
-      }
-    );
+      );
 
     return () => unsubscribe();
   }, []);
@@ -392,12 +369,12 @@ const UserProvider = ({ children }) => {
         user,
         login,
         logout,
+        refreshUser,
         handlegooglesignin,
         otpPending,
         pendingUserId,
         isVerifying,
         verifyOtp,
-        theme,
         changeTheme,
       }}
     >
@@ -406,7 +383,6 @@ const UserProvider = ({ children }) => {
   );
 };
 
-export { UserProvider };
-
 export const useUser = () =>
   useContext(UserContext);
+

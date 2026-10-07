@@ -1,65 +1,113 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+} from "react";
 
-const ThemeContext = createContext({
+type ThemePreference = "light" | "dark" | "auto";
+type ActualTheme = "light" | "dark";
+
+interface ThemeContextType {
+  theme: ActualTheme;
+  preference: ThemePreference;
+  setThemePreference: (pref: ThemePreference) => void;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
   theme: "dark",
-  toggleTheme: (theme: string) => {},
+  preference: "auto",
+  setThemePreference: () => {},
 });
 
-export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState("dark");
+const getAutoTheme = (): ActualTheme => {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
 
-  const getAutoTheme = () => {
-    try {
-      // Convert current time to IST (UTC + 5:30)
-      const now = new Date();
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      const istDate = new Date(now.getTime() + istOffset);
-      const hours = istDate.getUTCHours();
+    const parts = formatter.formatToParts(now);
+    const hour = Number(parts.find((p) => p.type === "hour")?.value || 0);
+    const minute = Number(parts.find((p) => p.type === "minute")?.value || 0);
 
-      // Light theme between 10:00 AM and 12:00 PM IST
-      if (hours >= 10 && hours < 12) {
-        return "light";
-      }
-    } catch (e) {
-      console.error("Error calculating IST time:", e);
-    }
+    const totalMinutes = hour * 60 + minute;
+
+    // 10:00 AM (600 min) to 11:59 AM (719 min) -> Light
+    // Otherwise -> Dark
+    return totalMinutes >= 600 && totalMinutes < 720 ? "light" : "dark";
+  } catch (e) {
+    console.error("Error calculating IST theme:", e);
     return "dark";
-  };
+  }
+};
 
+const applyThemeToDOM = (theme: ActualTheme) => {
+  if (typeof document === "undefined") return;
+
+  const root = document.documentElement;
+  if (theme === "dark") {
+    root.classList.add("dark");
+    root.classList.remove("light");
+  } else {
+    root.classList.add("light");
+    root.classList.remove("dark");
+  }
+  root.style.colorScheme = theme;
+};
+
+export const ThemeProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const [preference, setPreferenceState] = useState<ThemePreference>(() => {
+    if (typeof window === "undefined") return "auto";
+    return (localStorage.getItem("app-theme") as ThemePreference) || "auto";
+  });
+
+  // Derive actual theme based on preference
+  const theme = useMemo((): ActualTheme => {
+    if (preference === "auto") {
+      return getAutoTheme();
+    }
+    return preference as ActualTheme;
+  }, [preference]);
+
+  // Sync DOM whenever theme changes
   useEffect(() => {
-    const applyTheme = (mode: string) => {
-      if (mode === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
+    applyThemeToDOM(theme);
+  }, [theme]);
+
+  // Timer for auto-theme switching
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (preference === "auto") {
+        // We force a re-render to re-calculate derived 'theme'
+        setPreferenceState("auto");
       }
-      localStorage.setItem("app-theme", mode);
-    };
+    }, 60000);
 
-    // Determine initial theme
-    const savedTheme = localStorage.getItem("app-theme");
-    if (savedTheme && savedTheme !== "auto") {
-      applyTheme(savedTheme);
-      setTheme(savedTheme);
-    } else {
-      const auto = getAutoTheme();
-      applyTheme(auto);
-      setTheme(auto);
-    }
-  }, []);
+    return () => clearInterval(timer);
+  }, [preference]);
 
-  const toggleTheme = (mode: string) => {
-    setTheme(mode);
-    if (mode === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("app-theme", mode);
+  const setThemePreference = (pref: ThemePreference) => {
+    setPreferenceState(pref);
+    localStorage.setItem("app-theme", pref);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        preference,
+        setThemePreference,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

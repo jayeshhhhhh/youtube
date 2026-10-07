@@ -19,7 +19,7 @@ const getClientIp = (req) => {
   );
 };
 
-const getLocationFromIp = async (ip) => {
+const getCityState = async (ip) => {
   try {
     if (
       !ip ||
@@ -32,74 +32,82 @@ const getLocationFromIp = async (ip) => {
       return "Unknown";
     }
 
-    const geoRes = await axios.get(`http://ip-api.com/json/${ip}`, {
-      timeout: 5000,
-    });
+    const response = await axios.get(
+      `http://ip-api.com/json/${ip}?fields=status,city,regionName`,
+      { timeout: 5000 }
+    );
 
     if (
-      geoRes.data?.status === "success" &&
-      geoRes.data?.city &&
-      geoRes.data?.regionName
+      response.data?.status === "success" &&
+      response.data?.city &&
+      response.data?.regionName
     ) {
-      return `${geoRes.data.city}, ${geoRes.data.regionName}`;
+      return `${response.data.city}, ${response.data.regionName}`;
     }
 
     return "Unknown";
   } catch (error) {
-    console.error("Geo-location error:", error.message);
+    console.error("Location error:", error.message);
     return "Unknown";
   }
 };
 
 const getAutomaticTheme = () => {
-  const currentTime = new Date();
-
-  const istTime = new Intl.DateTimeFormat("en-IN", {
+  const parts = new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).formatToParts(currentTime);
+  }).formatToParts(new Date());
 
   const hour = Number(
-    istTime.find((part) => part.type === "hour")?.value || 0
+    parts.find((part) => part.type === "hour")?.value || 0
   );
 
   const minute = Number(
-    istTime.find((part) => part.type === "minute")?.value || 0
+    parts.find((part) => part.type === "minute")?.value || 0
   );
 
   const totalMinutes = hour * 60 + minute;
 
-  const startTime = 10 * 60;
-  const endTime = 12 * 60;
+  return totalMinutes >= 600 && totalMinutes < 720
+    ? "light"
+    : "dark";
+};
 
-  if (totalMinutes >= startTime && totalMinutes <= endTime) {
+const getSelectedTheme = (user) => {
+  if (user?.preferredTheme === "light") {
     return "light";
   }
 
-  return "dark";
-};
-
-const updateAutomaticTheme = async (user) => {
-  if (user.preferredTheme === "auto") {
-    return getAutomaticTheme();
+  if (user?.preferredTheme === "dark") {
+    return "dark";
   }
 
-  return user.preferredTheme;
+  return getAutomaticTheme();
 };
 
 export const login = async (req, res) => {
   const { email, name, image } = req.body;
 
-  console.log("Login attempt for email:", email);
+  if (!email) {
+    return res.status(400).json({
+      message: "Email is required",
+    });
+  }
+
+  console.log("Login attempt:", email);
 
   try {
-    const existingUser = await users.findOne({ email });
+    let existingUser = await users.findOne({ email });
+
+    const ip = getClientIp(req);
+    const userAgent =
+      req.headers["user-agent"] || "Unknown";
+
+    const currentLocation = await getCityState(ip);
 
     if (!existingUser) {
-      console.log("User not found, creating new user...");
-
       const automaticTheme = getAutomaticTheme();
 
       const newUser = await users.create({
@@ -107,27 +115,22 @@ export const login = async (req, res) => {
         name,
         image,
         preferredTheme: "auto",
-        lastLoginIp: getClientIp(req),
-        lastLoginDevice: req.headers["user-agent"] || "Unknown",
-        lastLoginLocation: await getLocationFromIp(getClientIp(req)),
+        lastLoginIp: ip,
+        lastLoginDevice: userAgent,
+        lastLoginLocation: currentLocation,
       });
-
-      const selectedTheme = automaticTheme;
 
       return res.status(201).json({
         result: newUser,
-        selectedTheme,
+        selectedTheme: automaticTheme,
       });
     }
 
-    console.log("User found, checking security...");
+    const previousDevice =
+      existingUser.lastLoginDevice || "";
 
-    const userAgent = req.headers["user-agent"] || "Unknown";
-    const ip = getClientIp(req);
-    const location = await getLocationFromIp(ip);
-
-    const previousDevice = existingUser.lastLoginDevice || "";
-    const previousLocation = existingUser.lastLoginLocation || "";
+    const previousLocation =
+      existingUser.lastLoginLocation || "";
 
     const isNewDevice =
       previousDevice &&
@@ -137,46 +140,51 @@ export const login = async (req, res) => {
     const isNewLocation =
       previousLocation &&
       previousLocation !== "Unknown" &&
-      location !== "Unknown" &&
-      previousLocation !== location;
+      currentLocation !== "Unknown" &&
+      previousLocation !== currentLocation;
 
     const hasPreviousLogin =
-      Boolean(existingUser.lastLoginDevice) ||
-      Boolean(existingUser.lastLoginLocation);
+      Boolean(previousDevice) ||
+      Boolean(previousLocation);
 
     if (
       hasPreviousLogin &&
       (isNewDevice || isNewLocation)
     ) {
       console.log(
-        "New device/location detected. Triggering OTP."
+        "New device/location detected. OTP required."
       );
 
       const otp = Math.floor(
         100000 + Math.random() * 900000
       ).toString();
 
-      const expiresAt = new Date(
+      const otpExpiresAt = new Date(
         Date.now() + 10 * 60 * 1000
       );
 
-      await users.findByIdAndUpdate(existingUser._id, {
-        otpCode: otp,
-        otpExpiresAt: expiresAt,
-      });
+      await users.findByIdAndUpdate(
+        existingUser._id,
+        {
+          otpCode: otp,
+          otpExpiresAt,
+        }
+      );
 
       try {
-        await sendOTP(existingUser.email, otp);
-        console.log("OTP sent successfully");
-      } catch (emailError) {
+        await sendOTP(
+          existingUser.email,
+          otp
+        );
+      } catch (error) {
         console.error(
-          "OTP email sending failed:",
-          emailError.message
+          "OTP email error:",
+          error.message
         );
 
         return res.status(500).json({
           message:
-            "Unable to send verification OTP. Please try again.",
+            "Unable to send OTP. Please try again.",
         });
       }
 
@@ -184,29 +192,30 @@ export const login = async (req, res) => {
         requiresOtp: true,
         userId: existingUser._id,
         message:
-          "New device or location detected. Please verify via email.",
+          "New device or location detected. OTP verification required.",
       });
     }
 
     const selectedTheme =
-      await updateAutomaticTheme(existingUser);
+      getSelectedTheme(existingUser);
 
-    await users.findByIdAndUpdate(existingUser._id, {
-      lastLoginIp: ip,
-      lastLoginDevice: userAgent,
-      lastLoginLocation: location,
-    });
-
-    const updatedUser = await users.findById(existingUser._id);
-
-    console.log("Security check passed. Logging in...");
+    const updatedUser =
+      await users.findByIdAndUpdate(
+        existingUser._id,
+        {
+          lastLoginIp: ip,
+          lastLoginDevice: userAgent,
+          lastLoginLocation: currentLocation,
+        },
+        { new: true }
+      );
 
     return res.status(200).json({
       result: updatedUser,
       selectedTheme,
     });
   } catch (error) {
-    console.error("CRITICAL Login error:", error);
+    console.error("Login error:", error);
 
     return res.status(500).json({
       message: "Something went wrong",
@@ -218,18 +227,24 @@ export const login = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   const { userId, otp } = req.body;
 
+  if (!userId || !otp) {
+    return res.status(400).json({
+      message: "User ID and OTP are required",
+    });
+  }
+
   try {
     const user = await users.findById(userId);
 
     if (!user || !user.otpCode) {
       return res.status(400).json({
-        message: "Invalid OTP code",
+        message: "Invalid OTP",
       });
     }
 
-    if (String(user.otpCode) !== String(otp)) {
+    if (String(user.otpCode) !== String(otp).trim()) {
       return res.status(400).json({
-        message: "Invalid OTP code",
+        message: "Invalid OTP",
       });
     }
 
@@ -242,35 +257,39 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
+    const ip = getClientIp(req);
+
     const userAgent =
       req.headers["user-agent"] || "Unknown";
 
-    const ip = getClientIp(req);
-    const location = await getLocationFromIp(ip);
+    const currentLocation =
+      await getCityState(ip);
 
     const selectedTheme =
-      await updateAutomaticTheme(user);
+      getSelectedTheme(user);
 
-    const updatedUser = await users.findByIdAndUpdate(
-      userId,
-      {
-        otpCode: null,
-        otpExpiresAt: null,
-        lastLoginIp: ip,
-        lastLoginDevice: userAgent,
-        lastLoginLocation: location,
-      },
-      {
-        new: true,
-      }
-    );
+    const updatedUser =
+      await users.findByIdAndUpdate(
+        userId,
+        {
+          otpCode: null,
+          otpExpiresAt: null,
+          lastLoginIp: ip,
+          lastLoginDevice: userAgent,
+          lastLoginLocation: currentLocation,
+        },
+        { new: true }
+      );
 
     return res.status(200).json({
       result: updatedUser,
       selectedTheme,
     });
   } catch (error) {
-    console.error("OTP Verification Error:", error);
+    console.error(
+      "OTP verification error:",
+      error
+    );
 
     return res.status(500).json({
       message: "Something went wrong",
@@ -288,39 +307,44 @@ export const updateprofile = async (req, res) => {
   } = req.body;
 
   if (!mongoose.Types.ObjectId.isValid(_id)) {
-    return res.status(500).json({
+    return res.status(400).json({
       message: "User unavailable...",
     });
   }
 
   try {
-    const updateData = {
-      channelname,
-      description,
-    };
+    const updateData = {};
+
+    if (channelname !== undefined) {
+      updateData.channelname = channelname;
+    }
+
+    if (description !== undefined) {
+      updateData.description = description;
+    }
 
     if (
       preferredTheme === "light" ||
       preferredTheme === "dark" ||
       preferredTheme === "auto"
     ) {
-      updateData.preferredTheme = preferredTheme;
+      updateData.preferredTheme =
+        preferredTheme;
     }
 
     const updatedUser =
       await users.findByIdAndUpdate(
         _id,
-        {
-          $set: updateData,
-        },
-        {
-          new: true,
-        }
+        { $set: updateData },
+        { new: true }
       );
 
-    return res.status(201).json(updatedUser);
+    return res.status(200).json(updatedUser);
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Profile update error:",
+      error
+    );
 
     return res.status(500).json({
       message: "Something went wrong",
@@ -339,14 +363,17 @@ export const getUserDownloads = async (req, res) => {
 
   try {
     const downloads = await Download.find({
-      userId: userId,
+      userId,
     })
       .populate("videoId")
       .sort({ downloadDate: -1 });
 
     return res.status(200).json(downloads);
   } catch (error) {
-    console.error("Download history error:", error);
+    console.error(
+      "Download history error:",
+      error
+    );
 
     return res.status(500).json({
       message: "Something went wrong",

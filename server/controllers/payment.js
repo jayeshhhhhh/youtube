@@ -70,6 +70,8 @@ export const verifyPayment = async (req, res) => {
     user.planExpiry = planExpiry;
 
     await user.save();
+    console.log("PLAN UPDATED:", user.plan);
+console.log("PLAN EXPIRY:", user.planExpiry);
 
     await Payment.create({
       userId,

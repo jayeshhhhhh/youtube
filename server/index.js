@@ -13,6 +13,7 @@ import historyrroutes from "./routes/history.js";
 import commentroutes from "./routes/comment.js";
 import downloadroutes from "./routes/download.js";
 import paymentroutes from "./routes/payment.js";
+import dislikeroutes from "./routes/dislike.js";
 import path from "path";
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use("/history", historyrroutes);
 app.use("/comment", commentroutes);
 app.use("/download", downloadroutes);
 app.use("/payment", paymentroutes);
+app.use("/dislike", dislikeroutes);
 
 // --- Watch Party Socket Logic ---
 const rooms = new Map(); // roomId -> { hostId, participants: Set }

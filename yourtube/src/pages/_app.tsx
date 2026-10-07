@@ -1,21 +1,24 @@
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import { Toaster } from "@/components/ui/sonner";
-import "@/styles/globals.css";
+import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import { UserProvider } from "../lib/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { WatchPartyProvider } from "../context/WatchPartyContext";
 import OTPModal from "@/components/OTPModal";
 import { useUser } from "@/lib/AuthContext";
-import { useState } from "react";
 
 const AppContent = ({ Component, pageProps }: any) => {
-  const { otpPending, pendingUserId, verifyOtp, isVerifying } = useUser();
-  const [otp, setOtp] = useState("");
+  const {
+    otpPending,
+    verifyOtp,
+    isVerifying,
+  } = useUser();
 
   const handleVerify = async (otpValue: string) => {
     const result = await verifyOtp(otpValue);
+
     if (!result.success) {
       alert(result.message);
     }
@@ -25,16 +28,20 @@ const AppContent = ({ Component, pageProps }: any) => {
     <>
       <div className="min-h-screen bg-white text-black">
         <title>Your-Tube Clone</title>
+
         <Header />
+
         <Toaster />
+
         <div className="flex">
           <Sidebar />
           <Component {...pageProps} />
         </div>
       </div>
+
       <OTPModal
         isOpen={otpPending}
-        onClose={() => {}} // Logic to handle close if needed
+        onClose={() => {}}
         onVerify={handleVerify}
         loading={isVerifying}
       />
@@ -42,14 +49,20 @@ const AppContent = ({ Component, pageProps }: any) => {
   );
 };
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({
+  Component,
+  pageProps,
+}: AppProps) {
   return (
-    <UserProvider>
-      <ThemeProvider>
+    <ThemeProvider>
+      <UserProvider>
         <WatchPartyProvider>
-          <AppContent Component={Component} pageProps={pageProps} />
+          <AppContent
+            Component={Component}
+            pageProps={pageProps}
+          />
         </WatchPartyProvider>
-      </ThemeProvider>
-    </UserProvider>
+      </UserProvider>
+    </ThemeProvider>
   );
 }

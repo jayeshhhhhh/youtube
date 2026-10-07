@@ -44,49 +44,92 @@ export const downloadVideo = async (req, res) => {
   const { userId } = req.query;
 
   if (!userId) {
-    return res.status(401).json({ message: "Authentication required" });
+    return res.status(401).json({
+      message: "Authentication required",
+    });
   }
 
   try {
-    // 1. Fetch User Plan
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
 
-    const plan = user.plan || "free";
-    const limit = plan === "premium" ? 10 : 1;
-
-    // 2. Check Daily Download Count
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const downloadCount = await Download.countDocuments({
-      userId: userId,
-      downloadDate: { $gte: startOfDay },
-    });
-
-    if (downloadCount >= limit) {
-      return res.status(403).json({
-        message: `Plan limit reached. ${plan === "premium" ? "Premium" : "Free"} users can download up to ${limit} videos per day.`
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
 
-    // 3. Fetch Video Details
-    const v = await video.findById(videoId);
-    if (!v) return res.status(404).json({ message: "Video not found" });
+    const plan = String(user.plan || "free").toLowerCase();
 
-    // 4. Log Download
-    await Download.create({
-      userId: userId,
-      videoId: videoId,
-      planAtDownload: plan,
+    const PLAN_LIMITS = {
+      free: 1,
+      bronze: 5,
+      silver: 10,
+      gold: 20,
+    };
+
+    const limit = PLAN_LIMITS[plan] || 1;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const downloadCount = await Download.countDocuments({
+      userId: user._id,
+      downloadDate: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
     });
 
-    // 5. Trigger Download
-    // Use the filepath stored in DB (which is relative to the server root)
+    console.log(
+      "DOWNLOAD CHECK:",
+      "Plan:",
+      plan,
+      "Count:",
+      downloadCount,
+      "Limit:",
+      limit
+    );
+
+    if (downloadCount >= limit) {
+      return res.status(403).json({
+        message: `Daily download limit reached. Your ${plan} plan allows ${limit} download${limit === 1 ? "" : "s"} per day.`,
+        plan,
+        dailyLimit: limit,
+        todayDownloads: downloadCount,
+        remainingDownloads: 0,
+      });
+    }
+
+    const v = await video.findById(videoId);
+
+    if (!v) {
+      return res.status(404).json({
+        message: "Video not found",
+      });
+    }
+
+    await Download.create({
+      userId: user._id,
+      videoId: v._id,
+      filename: v.filename,
+      videoTitle: v.videotitle,
+      filepath: v.filepath,
+      planAtDownload: plan,
+      downloadDate: new Date(),
+      downloadCount: 1,
+    });
+
     const absolutePath = path.resolve(v.filepath);
-    res.download(absolutePath, v.filename);
+
+    return res.download(absolutePath, v.filename);
   } catch (error) {
     console.error("Download error:", error);
-    return res.status(500).json({ message: "Something went wrong during download" });
+
+    return res.status(500).json({
+      message: "Something went wrong during download",
+    });
   }
 };
