@@ -17,7 +17,7 @@ import axiosInstance from "./axiosinstance";
 import { useTheme } from "../context/ThemeContext";
 
 const UserContext = createContext({
-  user: null,
+  user: /** @type {any} */ (null),
 });
 export const UserProvider = ({ children }) => {
   const { setThemePreference } = useTheme();
