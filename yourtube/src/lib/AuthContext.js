@@ -20,7 +20,7 @@ const UserContext = createContext({
   user: /** @type {any} */ (null),
   logout: async () => {},
   handlegooglesignin: async () => {},
-  login: () => {},
+  login: (...args) => {},
   refreshUser: async () => {},
   otpPending: false,
   pendingUserId: null,
