@@ -65,11 +65,11 @@ export const UserProvider = ({
 
   const login = (userdata: User, selectedTheme?: string) => {
     setUser(userdata);
+const preferredTheme = (
+  selectedTheme || userdata?.preferredTheme || "auto"
+) as "light" | "dark" | "auto";
 
-    const preferredTheme =
-      selectedTheme || userdata?.preferredTheme || "auto";
-
-    setThemePreference(preferredTheme);
+setThemePreference(preferredTheme);
 
     localStorage.setItem("user", JSON.stringify(userdata));
     localStorage.removeItem("otpPending");
