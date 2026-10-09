@@ -15,7 +15,7 @@ import {
 import { provider, auth } from "./firebase";
 import axiosInstance from "./axiosinstance";
 import { useTheme } from "../context/ThemeContext";
-
+type ThemePreference = "light" | "dark" | "auto";
 interface User {
   _id: string;
   name: string;
@@ -29,20 +29,20 @@ interface UserContextType {
   user: User | null;
   logout: () => Promise<void>;
   handlegooglesignin: () => Promise<any>;
-  login: (userdata: User, selectedTheme?: string) => void;
+  login: (userdata: User, selectedTheme?: ThemePreference) => void;
+  changeTheme: (selectedTheme: ThemePreference) => Promise<any>;
   refreshUser: () => Promise<any>;
   otpPending: boolean;
   pendingUserId: string | null;
   isVerifying: boolean;
   verifyOtp: (otp: string) => Promise<any>;
-  changeTheme: (selectedTheme: string) => Promise<any>;
 }
 
 const UserContext = createContext<UserContextType>({
   user: null,
-  logout: async () => {},
+  logout: async () => { },
   handlegooglesignin: async () => ({ success: false }),
-  login: () => {},
+  login: () => { },
   refreshUser: async () => null,
   otpPending: false,
   pendingUserId: null,
@@ -65,11 +65,11 @@ export const UserProvider = ({
 
   const login = (userdata: User, selectedTheme?: string) => {
     setUser(userdata);
-const preferredTheme = (
-  selectedTheme || userdata?.preferredTheme || "auto"
-) as "light" | "dark" | "auto";
+    const preferredTheme = (
+      selectedTheme || userdata?.preferredTheme || "auto"
+    ) as "light" | "dark" | "auto";
 
-setThemePreference(preferredTheme);
+    setThemePreference(preferredTheme);
 
     localStorage.setItem("user", JSON.stringify(userdata));
     localStorage.removeItem("otpPending");
@@ -88,8 +88,9 @@ setThemePreference(preferredTheme);
 
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
-      setThemePreference(updatedUser?.preferredTheme || "auto");
-
+      setThemePreference(
+        (updatedUser?.preferredTheme || "auto") as ThemePreference
+      );
       return updatedUser;
     } catch (error) {
       console.error("User refresh error:", error);
@@ -97,10 +98,8 @@ setThemePreference(preferredTheme);
     }
   };
 
-const changeTheme = async (
-  selectedTheme: "light" | "dark" | "auto"
-) => {
-  setThemePreference(selectedTheme);
+  const changeTheme = async (selectedTheme: ThemePreference) => {
+    setThemePreference(selectedTheme);
 
     if (!user?._id) return { success: true };
 
@@ -111,7 +110,6 @@ const changeTheme = async (
       );
 
       const updatedUser = response.data;
-
       setUser(updatedUser);
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
@@ -119,13 +117,13 @@ const changeTheme = async (
     } catch (error: any) {
       console.error("Theme update error:", error);
 
-      setThemePreference(user?.preferredTheme || "auto");
+      setThemePreference(
+        (user?.preferredTheme || "auto") as ThemePreference
+      );
 
       return {
         success: false,
-        message:
-          error.response?.data?.message ||
-          "Failed to update theme",
+        message: error.response?.data?.message || "Failed to update theme",
       };
     }
   };
@@ -209,7 +207,9 @@ const changeTheme = async (
         const parsedUser = JSON.parse(savedUser) as User;
 
         setUser(parsedUser);
-        setThemePreference(parsedUser?.preferredTheme || "auto");
+        setThemePreference(
+          (parsedUser?.preferredTheme || "auto") as "light" | "dark" | "auto"
+        );
       } catch (error) {
         console.error("Saved user error:", error);
         localStorage.removeItem("user");
