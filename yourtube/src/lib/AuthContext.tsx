@@ -97,8 +97,10 @@ setThemePreference(preferredTheme);
     }
   };
 
-  const changeTheme = async (selectedTheme: string) => {
-    setThemePreference(selectedTheme);
+const changeTheme = async (
+  selectedTheme: "light" | "dark" | "auto"
+) => {
+  setThemePreference(selectedTheme);
 
     if (!user?._id) return { success: true };
 
