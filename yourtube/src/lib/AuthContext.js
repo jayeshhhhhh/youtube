@@ -21,7 +21,7 @@ const UserContext = createContext({
   logout: async () => {},
   handlegooglesignin: async () => {},
   login: (...args) => {},
-  refreshUser: async () => {},
+  refreshUser: async () => {}
   otpPending: false,
   pendingUserId: null,
   isVerifying: false,
