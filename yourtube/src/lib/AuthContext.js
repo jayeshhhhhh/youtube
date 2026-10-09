@@ -15,7 +15,24 @@ import {
 import { provider, auth } from "./firebase";
 import axiosInstance from "./axiosinstance";
 import { useTheme } from "../context/ThemeContext";
+interface User {
+  _id: string;
+  name: string;
+  email?: string;
+}
 
+interface UserContextType {
+  user: User | null;
+  logout: (...args: any[]) => any;
+  handlegooglesignin: (...args: any[]) => any;
+  login: (...args: any[]) => any;
+  refreshUser: () => Promise<any>;
+  otpPending: boolean;
+  pendingUserId: string | null;
+  isVerifying: boolean;
+  verifyOtp: (...args: any[]) => any;
+  changeTheme: (...args: any[]) => any;
+}
 const UserContext = createContext({
   user: null,
   logout: async () => {},
