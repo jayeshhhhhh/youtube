@@ -17,17 +17,18 @@ import axiosInstance from "./axiosinstance";
 import { useTheme } from "../context/ThemeContext";
 
 const UserContext = createContext({
-  user: /** @type {any} */ (null),
+  user: null,
   logout: async () => {},
   handlegooglesignin: async () => {},
   login: (...args) => {},
-  refreshUser: async () => {}
+  refreshUser: async () => {},
   otpPending: false,
   pendingUserId: null,
   isVerifying: false,
   verifyOtp: async () => ({ success: false }),
   changeTheme: async () => ({ success: false }),
 });
+
 export const UserProvider = ({ children }) => {
   const { setThemePreference } = useTheme();
 
@@ -37,26 +38,31 @@ export const UserProvider = ({ children }) => {
   const [isVerifying, setIsVerifying] = useState(false);
 
   const login = (userdata, selectedTheme) => {
-  setUser(userdata);
+    setUser(userdata);
 
-  const preferredTheme =
-    userdata?.preferredTheme || "auto";
+    const preferredTheme =
+      selectedTheme ||
+      userdata?.preferredTheme ||
+      "auto";
 
-  setThemePreference(preferredTheme);
+    setThemePreference(preferredTheme);
 
-  localStorage.setItem(
-    "user",
-    JSON.stringify(userdata)
-  );
+    localStorage.setItem(
+      "user",
+      JSON.stringify(userdata)
+    );
 
-  localStorage.removeItem("otpPending");
-  localStorage.removeItem("pendingUserId");
-};
+    localStorage.removeItem("otpPending");
+    localStorage.removeItem("pendingUserId");
 
-   
+    setOtpPending(false);
+    setPendingUserId(null);
+  };
 
   const refreshUser = async () => {
-    if (!user?._id) return;
+    if (!user?._id) {
+      return null;
+    }
 
     try {
       const response = await axiosInstance.get(
@@ -72,18 +78,15 @@ export const UserProvider = ({ children }) => {
         JSON.stringify(updatedUser)
       );
 
-      if (updatedUser?.preferredTheme) {
-        setThemePreference(
-          updatedUser.preferredTheme
-        );
-      }
+      setThemePreference(
+        updatedUser?.preferredTheme || "auto"
+      );
 
       return updatedUser;
     } catch (error) {
-      console.error(
-        "User refresh error:",
-        error
-      );
+      console.error("User refresh error:", error);
+
+      return null;
     }
   };
 
@@ -91,19 +94,16 @@ export const UserProvider = ({ children }) => {
     setThemePreference(selectedTheme);
 
     if (!user?._id) {
-      return {
-        success: true,
-      };
+      return { success: true };
     }
 
     try {
-      const response =
-        await axiosInstance.patch(
-          `/user/update/${user._id}`,
-          {
-            preferredTheme: selectedTheme,
-          }
-        );
+      const response = await axiosInstance.patch(
+        `/user/update/${user._id}`,
+        {
+          preferredTheme: selectedTheme,
+        }
+      );
 
       const updatedUser = response.data;
 
@@ -114,13 +114,12 @@ export const UserProvider = ({ children }) => {
         JSON.stringify(updatedUser)
       );
 
-      return {
-        success: true,
-      };
+      return { success: true };
     } catch (error) {
-      console.error(
-        "Theme update error:",
-        error
+      console.error("Theme update error:", error);
+
+      setThemePreference(
+        user?.preferredTheme || "auto"
       );
 
       return {
@@ -136,6 +135,7 @@ export const UserProvider = ({ children }) => {
     setUser(null);
     setOtpPending(false);
     setPendingUserId(null);
+    setIsVerifying(false);
 
     localStorage.removeItem("user");
     localStorage.removeItem("otpPending");
@@ -146,10 +146,7 @@ export const UserProvider = ({ children }) => {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error(
-        "Logout error:",
-        error
-      );
+      console.error("Logout error:", error);
     }
   };
 
@@ -164,34 +161,22 @@ export const UserProvider = ({ children }) => {
     setIsVerifying(true);
 
     try {
-      const response =
-        await axiosInstance.post(
-          "/user/verify-otp",
-          {
-            userId: pendingUserId,
-            otp: String(otp).trim(),
-          }
-        );
+      const response = await axiosInstance.post(
+        "/user/verify-otp",
+        {
+          userId: pendingUserId,
+          otp: String(otp).trim(),
+        }
+      );
 
       login(
         response.data.result,
         response.data.selectedTheme
       );
 
-      setOtpPending(false);
-      setPendingUserId(null);
-
-      localStorage.removeItem("otpPending");
-      localStorage.removeItem("pendingUserId");
-
-      return {
-        success: true,
-      };
+      return { success: true };
     } catch (error) {
-      console.error(
-        "OTP verification error:",
-        error
-      );
+      console.error("OTP verification error:", error);
 
       return {
         success: false,
@@ -206,21 +191,17 @@ export const UserProvider = ({ children }) => {
 
   const handlegooglesignin = async () => {
     try {
-      const result =
-        await signInWithPopup(
-          auth,
-          provider
-        );
+      const result = await signInWithPopup(
+        auth,
+        provider
+      );
 
       return {
         success: true,
         user: result.user,
       };
     } catch (error) {
-      console.error(
-        "Google Sign-In Error:",
-        error
-      );
+      console.error("Google Sign-In Error:", error);
 
       return {
         success: false,
@@ -233,19 +214,15 @@ export const UserProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const savedUser =
-      localStorage.getItem("user");
-
+    const savedUser = localStorage.getItem("user");
     const savedOtpPending =
       localStorage.getItem("otpPending");
-
     const savedPendingUserId =
       localStorage.getItem("pendingUserId");
 
     if (savedUser) {
       try {
-        const parsedUser =
-          JSON.parse(savedUser);
+        const parsedUser = JSON.parse(savedUser);
 
         setUser(parsedUser);
 
@@ -253,10 +230,10 @@ export const UserProvider = ({ children }) => {
           parsedUser?.preferredTheme || "auto"
         );
       } catch (error) {
-        console.error(
-          "Saved user error:",
-          error
-        );
+        console.error("Saved user error:", error);
+
+        localStorage.removeItem("user");
+        setThemePreference("auto");
       }
     } else {
       setThemePreference("auto");
@@ -267,79 +244,69 @@ export const UserProvider = ({ children }) => {
       savedPendingUserId
     ) {
       setOtpPending(true);
-      setPendingUserId(
-        savedPendingUserId
-      );
+      setPendingUserId(savedPendingUserId);
     }
 
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        async (firebaseuser) => {
-          if (!firebaseuser) {
-            return;
-          }
-
-          if (
-            localStorage.getItem(
-              "otpPending"
-            ) === "true"
-          ) {
-            return;
-          }
-
-          try {
-            const payload = {
-              email:
-                firebaseuser.email,
-              name:
-                firebaseuser.displayName,
-              image:
-                firebaseuser.photoURL ||
-                "https://github.com/shadcn.png",
-            };
-
-            const response =
-              await axiosInstance.post(
-                "/user/login",
-                payload
-              );
-
-            if (
-              response.data.requiresOtp
-            ) {
-              setOtpPending(true);
-
-              setPendingUserId(
-                response.data.userId
-              );
-
-              localStorage.setItem(
-                "otpPending",
-                "true"
-              );
-
-              localStorage.setItem(
-                "pendingUserId",
-                response.data.userId
-              );
-
-              return;
-            }
-
-            login(
-              response.data.result,
-              response.data.selectedTheme
-            );
-          } catch (error) {
-            console.error(
-              "Backend Login Error:",
-              error.response?.data ||
-                error
-            );
-          }
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        if (!firebaseUser) {
+          return;
         }
-      );
+
+        if (
+          localStorage.getItem("otpPending") ===
+          "true"
+        ) {
+          return;
+        }
+
+        try {
+          const payload = {
+            email: firebaseUser.email,
+            name: firebaseUser.displayName,
+            image:
+              firebaseUser.photoURL ||
+              "https://github.com/shadcn.png",
+          };
+
+          const response = await axiosInstance.post(
+            "/user/login",
+            payload
+          );
+
+          if (response.data.requiresOtp) {
+            setOtpPending(true);
+
+            setPendingUserId(
+              response.data.userId
+            );
+
+            localStorage.setItem(
+              "otpPending",
+              "true"
+            );
+
+            localStorage.setItem(
+              "pendingUserId",
+              response.data.userId
+            );
+
+            return;
+          }
+
+          login(
+            response.data.result,
+            response.data.selectedTheme
+          );
+        } catch (error) {
+          console.error(
+            "Backend Login Error:",
+            error.response?.data || error
+          );
+        }
+      }
+    );
 
     return () => unsubscribe();
   }, []);
@@ -364,6 +331,4 @@ export const UserProvider = ({ children }) => {
   );
 };
 
-export const useUser = () =>
-  useContext(UserContext);
-
+export const useUser = () => useContext(UserContext);

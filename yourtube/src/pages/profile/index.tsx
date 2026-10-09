@@ -392,7 +392,7 @@ export default function ProfilePage() {
               <p className="text-gray-500">No downloaded videos yet.</p>
             </div>
           ) : (
-            <ScrollArea className="h-[500px] pr-4">
+                        <ScrollArea className="h-[500px] pr-4">
               <div className="space-y-4">
                 {downloads.map((dl) => (
                   <div
@@ -408,7 +408,10 @@ export default function ProfilePage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <FileVideo size={30} className="text-gray-400" />
+                          <FileVideo
+                            size={30}
+                            className="text-gray-400"
+                          />
                         </div>
                       )}
                     </div>
@@ -421,12 +424,16 @@ export default function ProfilePage() {
                       <div className="flex flex-col gap-1 mt-2 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Calendar size={13} />
-                          {new Date(dl.downloadDate).toLocaleDateString()}
+                          {new Date(
+                            dl.downloadDate
+                          ).toLocaleDateString()}
                         </span>
 
                         <span className="flex items-center gap-1">
                           <Clock size={13} />
-                          {new Date(dl.downloadDate).toLocaleTimeString([], {
+                          {new Date(
+                            dl.downloadDate
+                          ).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
                           })}
@@ -450,11 +457,11 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 ))}
-              </HScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
