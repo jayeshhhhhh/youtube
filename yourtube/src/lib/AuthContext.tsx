@@ -98,35 +98,61 @@ export const UserProvider = ({
     }
   };
 
-  const changeTheme = async (selectedTheme: ThemePreference) => {
+  
+const changeTheme = async (selectedTheme: ThemePreference) => {
+  const previousTheme = (user?.preferredTheme || "auto") as ThemePreference;
+
+  // Update UI immediately
+  setThemePreference(selectedTheme);
+
+  if (!user?._id) {
+    localStorage.setItem(
+      "user",
+      JSON.stringify({ ...user, preferredTheme: selectedTheme })
+    );
+    return { success: true };
+  }
+
+  try {
+    const response = await axiosInstance.patch(
+      `/user/update/${user._id}`,
+      { preferredTheme: selectedTheme }
+    );
+
+    // Support APIs that return either the user or a success message
+    const responseUser = response.data?.user || response.data?.result || response.data;
+
+    const updatedUser =
+      responseUser && typeof responseUser === "object" && responseUser._id
+        ? responseUser
+        : { ...user, preferredTheme: selectedTheme };
+
+    setUser(updatedUser);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
     setThemePreference(selectedTheme);
 
-    if (!user?._id) return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("Theme update failed:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      url: error.config?.url,
+      message: error.message,
+    });
 
-    try {
-      const response = await axiosInstance.patch(
-        `/user/update/${user._id}`,
-        { preferredTheme: selectedTheme }
-      );
+    setThemePreference(previousTheme);
 
-      const updatedUser = response.data;
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to update theme",
+    };
+  }
+};
 
-      return { success: true };
-    } catch (error: any) {
-      console.error("Theme update error:", error);
 
-      setThemePreference(
-        (user?.preferredTheme || "auto") as ThemePreference
-      );
-
-      return {
-        success: false,
-        message: error.response?.data?.message || "Failed to update theme",
-      };
-    }
-  };
 
   const logout = async () => {
     setUser(null);
