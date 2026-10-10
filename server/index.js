@@ -338,6 +338,39 @@ io.on("connection", (socket) => {
   });
 
   socket.on("send-message", ({ roomId, message } = {}) => {
+    
+  // WEBRTC SIGNALING
+  const relayWebRTC = (eventName, payload = {}) => {
+    const { roomId, to, ...data } = payload;
+
+    if (typeof roomId !== "string" || typeof to !== "string") return;
+
+    const room = rooms.get(roomId);
+    const target = io.sockets.sockets.get(to);
+
+    if (!room || !socket.rooms.has(roomId)) return;
+    if (!room.participants.has(to)) return;
+    if (!target || !target.rooms.has(roomId)) return;
+
+    target.emit(eventName, {
+      ...data,
+      roomId,
+      from: socket.id,
+    });
+  };
+
+  socket.on("webrtc-offer", (payload) =>
+    relayWebRTC("webrtc-offer", payload)
+  );
+
+  socket.on("webrtc-answer", (payload) =>
+    relayWebRTC("webrtc-answer", payload)
+  );
+
+  socket.on("webrtc-ice-candidate", (payload) =>
+    relayWebRTC("webrtc-ice-candidate", payload)
+  );
+
     const room = rooms.get(roomId);
 
     if (!room || !socket.rooms.has(roomId)) return;
