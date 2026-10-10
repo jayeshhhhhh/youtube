@@ -49,8 +49,7 @@ const index = () => {
       },
     ];
     return (
-      <div className="flex-1 min-h-screen bg-white">
-        <div className="max-w-full mx-auto">
+<div className="flex-1 min-h-screen bg-white dark:bg-[#0f0f0f] text-black dark:text-white">        <div className="max-w-full mx-auto">
           <ChannelHeader channel={channel} user={user} />
           <Channeltabs />
           <div className="px-4 pb-8">
