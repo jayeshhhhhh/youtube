@@ -36,10 +36,9 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  ...(process.env.FRONTEND_URLS || "")
-    .split(",")
-    .map((url) => url.trim()),
+  ...(process.env.FRONTEND_URLS || "").split(",").map(url => url.trim()),
   "http://localhost:3000",
+  "https://youtube-six-flame.vercel.app",
 ].filter(Boolean);
 
 const corsOptions = {
