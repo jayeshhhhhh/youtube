@@ -84,7 +84,7 @@ const VideoUploader = ({ channelId, channelName }: any) => {
   };
   return (
     <div className="bg-gray-50 rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4">Upload a video</h2>
+      <h2 className="text-black dark:text-black font-semibold mb-4">Upload a video</h2>
 
       <div className="space-y-4">
         {!videoFile ? (
@@ -93,7 +93,7 @@ const VideoUploader = ({ channelId, channelName }: any) => {
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-            <p className="text-lg font-medium">
+            <p className="text-lg font-medium text-gray-700">
               Drag and drop video files to upload
             </p>
             <p className="text-sm text-gray-500 mt-1">
@@ -117,7 +117,9 @@ const VideoUploader = ({ channelId, channelName }: any) => {
                 <FileVideo className="w-6 h-6 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{videoFile.name}</p>
+                <p className="font-medium truncate text-black dark:text-black">
+                  {videoFile.name}
+                </p>
                 <p className="text-sm text-gray-500">
                   {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
@@ -143,7 +145,7 @@ const VideoUploader = ({ channelId, channelName }: any) => {
                   onChange={(e) => setVideoTitle(e.target.value)}
                   placeholder="Add a title that describes your video"
                   disabled={isUploading || uploadComplete}
-                  className="mt-1"
+                  className="mt-1 text-black dark:text-black"
                 />
               </div>
             </div>

@@ -4,8 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useUser } from "@/lib/AuthContext";
 import axiosInstance from "@/lib/axiosinstance";
 import { Button } from "@/components/ui/button";
-
 import {
+  MoreVertical,
   Download,
   Calendar,
   Video,
@@ -17,6 +17,7 @@ import {
   Share2,
   Bookmark,
   Check,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -63,6 +64,40 @@ export default function ProfilePage({ video }: VideoInfoProps) {
 
   const [downloading, setDownloading] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
+
+
+
+  const [showVideoMenu, setShowVideoMenu] = useState(false);
+  const [deletingVideo, setDeletingVideo] = useState(false);
+
+  const isVideoOwner =
+  !!user?._id &&
+  !!video?.uploaderId &&
+  String(user._id) === String(video.uploaderId);;
+console.log("Logged-in user:", user?._id);
+console.log("Video uploader:", video?.uploaderId);
+  const handleDeleteVideo = async () => {
+    if (!isVideoOwner || !video?._id) return;
+
+    if (!window.confirm("Delete this video permanently?")) return;
+
+    try {
+      setDeletingVideo(true);
+
+      await axiosInstance.delete(`/video/${video._id}`, {
+        params: { userId: user._id },
+      });
+
+      alert("Video deleted successfully.");
+      window.location.href = "/";
+    } catch (error: any) {
+      alert(error?.response?.data?.message || "Could not delete video.");
+    } finally {
+      setDeletingVideo(false);
+    }
+  };
+
+
 
   useEffect(() => {
     const fetchDownloads = async () => {
@@ -476,6 +511,30 @@ const handleDownloadVideo = async () => {
                   ? "Downloading..."
                   : "Download"}
               </Button>
+{isVideoOwner && (
+  <div className="relative">
+    <Button
+      variant="outline"
+      aria-label="Video options"
+      onClick={() => setShowVideoMenu((prev) => !prev)}
+    >
+      <MoreVertical className="h-4 w-4" />
+    </Button>
+
+    {showVideoMenu && (
+      <div className="absolute right-0 top-full z-50 mt-2 min-w-40 rounded-md border bg-background p-1 shadow-md">
+        <button
+          disabled={deletingVideo}
+          onClick={handleDeleteVideo}
+          className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-red-600 hover:bg-muted"
+        >
+          <Trash2 className="h-4 w-4" />
+          {deletingVideo ? "Deleting..." : "Delete video"}
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
             </div>
           </div>

@@ -11,106 +11,71 @@ const PLAN_LIMITS = {
 };
 
 export const downloadVideo = async (req, res) => {
+  const { id: videoId } = req.params;
+  const { userId } = req.query;
+
   try {
-    const { userId, videoId } = req.body;
-
     if (!userId || !videoId) {
-      return res.status(400).json({
-        message: "User ID and Video ID are required.",
-      });
+      return res.status(400).json({ message: "User ID and Video ID required." });
     }
 
-    if (
-      !mongoose.Types.ObjectId.isValid(userId) ||
-      !mongoose.Types.ObjectId.isValid(videoId)
-    ) {
-      return res.status(400).json({
-        message: "Invalid user or video ID.",
-      });
-    }
-
-    const user = await users.findById(userId);
-
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
-        message: "User not found.",
-      });
+      return res.status(404).json({ message: "User not found." });
     }
 
-    const videoData = await video.findById(videoId);
-
-    if (!videoData) {
-      return res.status(404).json({
-        message: "Video not found.",
-      });
+    const v = await video.findById(videoId);
+    if (!v) {
+      return res.status(404).json({ message: "Video not found." });
     }
 
     const plan = String(user.plan || "free").toLowerCase();
-    const dailyLimit = PLAN_LIMITS[plan] || 1;
+    const limits = { free: 1, bronze: 5, silver: 10, gold: 20 };
+    const limit = limits[plan] || 1;
 
-    const now = new Date();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
 
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(now);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const todayDownloads = await download.countDocuments({
+    const count = await Download.countDocuments({
       userId: user._id,
-      downloadDate: {
-        $gte: startOfDay,
-        $lte: endOfDay,
-      },
+      downloadDate: { $gte: start },
     });
 
-    if (todayDownloads >= dailyLimit) {
+    if (count >= limit) {
       return res.status(403).json({
-        message:
-          plan === "free"
-            ? "Free users can download only 1 video per day."
-            : `${plan.charAt(0).toUpperCase() + plan.slice(1)} plan allows ${dailyLimit} downloads per day. You have reached today's limit.`,
-        limitReached: true,
-        plan,
-        dailyLimit,
-        todayDownloads,
-        remainingDownloads: 0,
+        message: `Daily download limit reached. Your ${plan} plan allows ${limit} downloads per day.`,
       });
     }
 
-    const newDownload = await download.create({
+    // Find the file in the backend uploads directory.
+    const filename = path.basename(v.filepath || v.filename);
+    const absolutePath = path.join(process.cwd(), "uploads", filename);
+
+    if (!fs.existsSync(absolutePath)) {
+      console.error("Download file missing:", absolutePath);
+      return res.status(410).json({
+        message: "Video file missing on server. Please upload it again.",
+      });
+    }
+
+    await Download.create({
       userId: user._id,
-      videoId: videoData._id,
-      videoTitle: videoData.videotitle,
-      thumbnail: videoData.thumbnail || "",
-      filename: videoData.filename,
-      filepath: videoData.filepath,
-      fileSize: videoData.filesize || "",
+      videoId: v._id,
+      filename: v.filename,
+      videoTitle: v.videotitle,
+      filepath: absolutePath,
       planAtDownload: plan,
-      downloadDate: now,
+      downloadDate: new Date(),
       downloadCount: 1,
     });
 
-    const newCount = todayDownloads + 1;
-
-    return res.status(200).json({
-      message: "Download started successfully.",
-      download: newDownload,
-      plan,
-      dailyLimit,
-      todayDownloads: newCount,
-      remainingDownloads: Math.max(dailyLimit - newCount, 0),
-      fileUrl: `${req.protocol}://${req.get("host")}/${videoData.filepath}`,
-    });
+    return res.download(absolutePath, v.filename);
   } catch (error) {
     console.error("Download error:", error);
-
-    return res.status(500).json({
-      message: "Something went wrong during download.",
-      error: error.message,
-    });
+    return res.status(500).json({ message: "Video download failed." });
   }
 };
+
 
 export const getUserDownloads = async (req, res) => {
   try {

@@ -10,6 +10,7 @@ interface VideoPlayerProps {
     _id: string;
     videotitle: string;
     filepath: string;
+     filetype?: string;
   };
   allVideos?: any[];
 }
@@ -184,10 +185,13 @@ export default function VideoPlayer({ video, allVideos }: VideoPlayerProps) {
         onCanPlay={() => setIsLoading(false)}
         onClick={togglePlay}
       >
-        <source
-          src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/${video.filepath}`}
-          type="video/mp4"
-        />
+        
+<source
+  src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/stream/${video._id}`}
+  type={video.filetype || "video/mp4"}
+  onError={() => console.error("Video URL failed to load")}
+/>
+
         Your browser does not support the video tag.
       </video>
 

@@ -55,6 +55,13 @@ const videochema = mongoose.Schema(
     uploader: {
       type: String,
     },
+    
+uploaderId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "user",
+  default: null,
+},
+
   },
   {
     timestamps: true,
