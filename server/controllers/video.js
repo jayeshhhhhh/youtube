@@ -1,41 +1,71 @@
+
 import video from "../Modals/video.js";
 import Download from "../Modals/download.js";
 import User from "../Modals/Auth.js";
-import mongoose from "mongoose";
 import path from "path";
+import fs from "fs";
 
 export const uploadvideo = async (req, res) => {
-  if (req.file === undefined) {
-    return res
-      .status(404)
-      .json({ message: "plz upload a mp4 video file only" });
-  } else {
-    try {
-      const file = new video({
-        videotitle: req.body.videotitle,
-        filename: req.file.originalname,
-        filepath: req.file.path,
-        filetype: req.file.mimetype,
-        filesize: req.file.size,
-        videochanel: req.body.videochanel,
-        uploader: req.body.uploader,
+  if (!req.file) {
+    return res.status(400).json({
+      message: "Please select a supported video file.",
+    });
+  }
+
+  try {
+    const {
+      videotitle,
+      videochanel,
+      uploader,
+    } = req.body;
+
+    if (!videotitle?.trim() || !videochanel?.trim() || !uploader?.trim()) {
+      fs.unlink(req.file.path, () => {});
+
+      return res.status(400).json({
+        message: "Video title, channel name and uploader are required.",
       });
-      await file.save();
-      return res.status(201).json("file uploaded successfully");
-    } catch (error) {
-      console.error(" error:", error);
-      return res.status(500).json({ message: "Something went wrong" });
     }
+
+    const savedVideo = await video.create({
+      videotitle: videotitle.trim(),
+      filename: req.file.originalname,
+      filepath: req.file.path,
+      filetype: req.file.mimetype,
+      filesize: String(req.file.size),
+      videochanel: videochanel.trim(),
+      uploader: uploader.trim(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Video uploaded successfully.",
+      video: savedVideo,
+    });
+  } catch (error) {
+    console.error("Video upload error:", error);
+
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    return res.status(500).json({
+      message: "Video upload failed.",
+    });
   }
 };
 
-export const getallvideo = async (req, res) => {
+export const getallvideo = async (_req, res) => {
   try {
-    const files = await video.find();
-    return res.status(200).send(files);
+    const files = await video.find().sort({ createdAt: -1 });
+
+    return res.status(200).json(files);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error("Get videos error:", error);
+
+    return res.status(500).json({
+      message: "Unable to fetch videos.",
+    });
   }
 };
 
@@ -45,7 +75,7 @@ export const downloadVideo = async (req, res) => {
 
   if (!userId) {
     return res.status(401).json({
-      message: "Authentication required",
+      message: "Authentication required.",
     });
   }
 
@@ -54,7 +84,7 @@ export const downloadVideo = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        message: "User not found",
+        message: "User not found.",
       });
     }
 
@@ -83,19 +113,9 @@ export const downloadVideo = async (req, res) => {
       },
     });
 
-    console.log(
-      "DOWNLOAD CHECK:",
-      "Plan:",
-      plan,
-      "Count:",
-      downloadCount,
-      "Limit:",
-      limit
-    );
-
     if (downloadCount >= limit) {
       return res.status(403).json({
-        message: `Daily download limit reached. Your ${plan} plan allows ${limit} download${limit === 1 ? "" : "s"} per day.`,
+        message: `Daily download limit reached. Your ${plan} plan allows ${limit} downloads per day.`,
         plan,
         dailyLimit: limit,
         todayDownloads: downloadCount,
@@ -107,7 +127,15 @@ export const downloadVideo = async (req, res) => {
 
     if (!v) {
       return res.status(404).json({
-        message: "Video not found",
+        message: "Video not found.",
+      });
+    }
+
+    const absolutePath = path.resolve(v.filepath);
+
+    if (!fs.existsSync(absolutePath)) {
+      return res.status(410).json({
+        message: "Video file is no longer available. Please upload it again.",
       });
     }
 
@@ -122,14 +150,12 @@ export const downloadVideo = async (req, res) => {
       downloadCount: 1,
     });
 
-    const absolutePath = path.resolve(v.filepath);
-
     return res.download(absolutePath, v.filename);
   } catch (error) {
     console.error("Download error:", error);
 
     return res.status(500).json({
-      message: "Something went wrong during download",
+      message: "Video download failed.",
     });
   }
 };
