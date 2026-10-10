@@ -39,7 +39,7 @@ const allowedOrigins = [
   ...(process.env.FRONTEND_URLS || "").split(",").map(url => url.trim()),
   "http://localhost:3000",
   "https://youtube-six-flame.vercel.app",
-].filter(Boolean);
+].filter(Boolean)
 
 const corsOptions = {
   origin(origin, callback) {
@@ -60,13 +60,18 @@ app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
 app.use("/uploads", express.static(UPLOAD_DIR));
 
+
 const io = new Server(httpServer, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: [
+      "https://youtube-six-flame.vercel.app",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
+
 
 app.set("io", io);
 
