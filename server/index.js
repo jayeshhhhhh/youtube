@@ -337,8 +337,27 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("video-sync", room.playback);
   });
 
-  socket.on("send-message", ({ roomId, message } = {}) => {
-    
+    socket.on("send-message", ({ roomId, message } = {}) => {
+    const room = rooms.get(roomId);
+
+    if (!room || !socket.rooms.has(roomId)) return;
+    if (typeof message !== "string") return;
+
+    const cleanMessage = message.trim().slice(0, 1000);
+    if (!cleanMessage) return;
+
+    const participant = room.participants.get(socket.id);
+    if (!participant) return;
+
+    io.to(roomId).emit("receive-message", {
+      id: `${socket.id}-${Date.now()}-${Math.random()}`,
+      user: participant.userName,
+      userId: participant.userId,
+      message: cleanMessage,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // WEBRTC SIGNALING
   const relayWebRTC = (eventName, payload = {}) => {
     const { roomId, to, ...data } = payload;
@@ -370,26 +389,6 @@ io.on("connection", (socket) => {
   socket.on("webrtc-ice-candidate", (payload) =>
     relayWebRTC("webrtc-ice-candidate", payload)
   );
-
-    const room = rooms.get(roomId);
-
-    if (!room || !socket.rooms.has(roomId)) return;
-    if (typeof message !== "string") return;
-
-    const cleanMessage = message.trim().slice(0, 1000);
-    if (!cleanMessage) return;
-
-    const participant = room.participants.get(socket.id);
-    if (!participant) return;
-
-    io.to(roomId).emit("receive-message", {
-      id: `${socket.id}-${Date.now()}-${Math.random()}`,
-      user: participant.userName,
-      userId: participant.userId,
-      message: cleanMessage,
-      timestamp: new Date().toISOString(),
-    });
-  });
 
   socket.on("leave-room", ({ roomId } = {}) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
