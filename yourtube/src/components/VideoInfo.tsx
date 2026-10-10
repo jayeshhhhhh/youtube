@@ -251,50 +251,60 @@ export default function ProfilePage({ video }: VideoInfoProps) {
     }
   };
 
-  const handleDownloadVideo = async () => {
-    if (!user?._id || !video?._id) {
-      alert("Please login first");
+
+const handleDownloadVideo = async () => {
+  if (!user?._id || !video?._id) {
+    alert("Please login first");
+    return;
+  }
+
+  try {
+    setDownloading(true);
+
+    const response = await axiosInstance.get(
+      `/video/download/${video._id}?userId=${user._id}`,
+      { responseType: "blob" }
+    );
+
+    const blob = new Blob([response.data]);
+    const contentType = response.headers["content-type"] || "";
+
+    if (contentType.includes("application/json")) {
+      const text = await blob.text();
+      const data = JSON.parse(text);
+      alert(data.message || "Download failed");
       return;
     }
 
-    try {
-      setDownloading(true);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-      const response = await axiosInstance.get(
-        `/video/download/${video._id}?userId=${user._id}`,
-        {
-          responseType: "blob",
-        }
-      );
-if (response.status === 403) {
-  alert("Daily download limit reached. You cannot download more videos today.");
-  return;
-}
-      const blob = new Blob([response.data], {
-        type: "video/mp4",
-      });
+    link.href = url;
+    link.download = video.filename || `${video.videotitle || "video"}.mp4`;
 
-      const url =
-        window.URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
 
-      const link = document.createElement("a");
+    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  } catch (error: any) {
+    const data = error?.response?.data;
+    let message = "Download failed.";
 
-      link.href = url;
-      link.download =
-        video.filename ||
-        `${video.videotitle}.mp4`;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        message = JSON.parse(text).message || message;
+      } catch {}
+    }
 
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+    alert(message);
+    console.error("Download error:", error);
+  } finally {
+    setDownloading(false);
+  }
+};
 
-      window.URL.revokeObjectURL(url);
-    }  catch (error) {
-  alert("Download failed. Please try again.");
-} finally {
-  setDownloading(false);
-}
-  };
 
   const handleSubscribe = () => {
     setSubscribed((prev) => !prev);
