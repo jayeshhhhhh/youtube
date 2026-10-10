@@ -85,15 +85,22 @@ export default function WatchPartyRoom() {
       const incoming = event.streams[0];
       if (incoming) setRemoteStreams((old) => ({ ...old, [peerId]: incoming }));
     };
-    pc.onconnectionstatechange = () => {
-      if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
-        setRemoteStreams((old) => {
-          const next = { ...old };
-          delete next[peerId];
-          return next;
-        });
-      }
-    };
+pc.onconnectionstatechange = () => {
+  console.log("Peer:", peerId, "Connection:", pc.connectionState);
+  console.log("ICE:", pc.iceConnectionState);
+};
+
+pc.oniceconnectionstatechange = () => {
+  console.log("ICE state:", pc.iceConnectionState);
+};
+
+pc.ontrack = (event) => {
+  console.log("REMOTE TRACK:", event.track.kind);
+  const stream = event.streams[0];
+  if (stream) {
+    setRemoteStreams((old) => ({ ...old, [peerId]: stream }));
+  }
+};
     return pc;
   }, [roomId]);
 
@@ -242,6 +249,9 @@ pendingCandidates.current.delete(from);
       setCallError("");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       setLocalStream(stream);
+      console.log("MY SOCKET:", socketRef.current?.id);
+console.log("PARTICIPANTS:", participants);
+console.log("PEERS:", [...peersRef.current.keys()]);
       localStreamRef.current = stream;
       setCameraOn(true);
       setMicOn(true);
