@@ -24,6 +24,7 @@ export default function WatchPartyRoom() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const pendingCandidates = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const suppressSync = useRef(false);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -171,6 +172,11 @@ export default function WatchPartyRoom() {
       try {
         if (pc.signalingState !== "stable") await pc.setLocalDescription({ type: "rollback" });
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const queued = pendingCandidates.current.get(from) || [];
+for (const candidate of queued) {
+  await pc.addIceCandidate(new RTCIceCandidate(candidate));
+}
+pendingCandidates.current.delete(from);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit("webrtc-answer", { roomId, to: from, answer: pc.localDescription });
@@ -186,11 +192,22 @@ export default function WatchPartyRoom() {
       catch (err) { console.error("WebRTC answer handling failed", err); }
     });
     socket.on("webrtc-ice-candidate", async ({ from, candidate }: SignalPayload) => {
-      if (!from || !candidate) return;
-      const pc = peersRef.current.get(from) || ensurePeer(from);
-      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-      catch (err) { console.error("ICE candidate failed", err); }
-    });
+  if (!from || !candidate) return;
+
+  const pc = ensurePeer(from);
+
+  try {
+    if (pc.remoteDescription) {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } else {
+      const queued = pendingCandidates.current.get(from) || [];
+      queued.push(candidate);
+      pendingCandidates.current.set(from, queued);
+    }
+  } catch (err) {
+    console.error("ICE candidate failed:", err);
+  }
+});
 
     return () => {
       if (syncTimer.current) clearTimeout(syncTimer.current);
