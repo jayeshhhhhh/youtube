@@ -53,7 +53,10 @@ const index = () => {
           <ChannelHeader channel={channel} user={user} />
           <Channeltabs />
           <div className="px-4 pb-8">
-            <VideoUploader channelId={id} channelName={channel?.channelname} />
+            <VideoUploader
+  channelId={Array.isArray(id) ? id[0] : id || ""}
+  channelName={channel?.channelname || ""}
+/>
           </div>
           <div className="px-4 pb-8">
             <ChannelVideos videos={videos} />
