@@ -296,39 +296,51 @@ const Comments = ({ videoId }: any) => {
     }
   };
 
-  const handleTranslate = async (
-    id: string,
-    targetLanguage: string
-  ) => {
-    try {
-      const res = await axiosInstance.post(
-        `/comment/translate/${id}`,
-        {
-          targetLanguage: targetLanguage
-        }
-      );
+const handleTranslate = async (
+  id: string,
+  targetLanguage: string
+) => {
+  const selectedComment = comments.find(
+    (comment) => comment._id === id
+  );
 
-      setComments((prev) =>
-        prev.map((c) =>
-          c._id === id
-            ? {
-                ...c,
-                translatedText:
-                  res.data.translatedText,
-                language: targetLanguage
-              }
-            : c
-        )
-      );
+  if (!selectedComment) return;
 
-      setTranslationMenuId(null);
-    } catch (error: any) {
-      alert(
-        error.response?.data?.message ||
-          "Translation failed"
-      );
-    }
-  };
+  if (
+    selectedComment.translatedText &&
+    selectedComment.language === targetLanguage
+  ) {
+    setTranslationMenuId(null);
+    return;
+  }
+
+  try {
+    const res = await axiosInstance.post(
+      `/comment/translate/${id}`,
+      { targetLanguage }
+    );
+
+    setComments((prev) =>
+      prev.map((comment) =>
+        comment._id === id
+          ? {
+              ...comment,
+              translatedText: res.data.translatedText,
+              language: targetLanguage,
+            }
+          : comment
+      )
+    );
+
+    setTranslationMenuId(null);
+  } catch (error: any) {
+    alert(
+      error.response?.status === 429
+        ? "Translation limit reached. Please try again later."
+        : error.response?.data?.message || "Translation failed"
+    );
+  }
+};
 
   if (loading) {
     return (
