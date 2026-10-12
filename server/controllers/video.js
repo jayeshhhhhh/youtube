@@ -218,6 +218,7 @@ export const downloadVideo = async (req, res) => {
   }
 };
 
+
 export const deleteVideo = async (req, res) => {
   const { userId } = req.query;
 
@@ -226,37 +227,52 @@ export const deleteVideo = async (req, res) => {
   }
 
   try {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ message: "Invalid user." });
+    }
+
     const user = await User.findById(userId);
-    if (!user) return res.status(401).json({ message: "Invalid user." });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid user." });
+    }
 
     const v = await video.findById(req.params.id);
-    if (!v) return res.status(404).json({ message: "Video not found." });
+    if (!v) {
+      return res.status(404).json({ message: "Video not found." });
+    }
 
-    const ownsById =
-      v.uploaderId && String(v.uploaderId) === String(user._id);
-
-    const names = userNames(user);
-    const ownsByName =
-      v.uploader && names.includes(String(v.uploader).trim().toLowerCase());
-
-    if (!ownsById && !ownsByName) {
+    // Only the original uploader ID can delete
+    if (
+      !v.uploaderId ||
+      String(v.uploaderId) !== String(user._id)
+    ) {
       return res.status(403).json({
         message: "Only the uploader can delete this video.",
       });
     }
 
     const filePath = findVideoFile(v);
+
     await video.findByIdAndDelete(v._id);
 
     if (filePath) {
-      fs.unlink(filePath, (error) => {
-        if (error) console.error("Video file cleanup error:", error);
-      });
+      try {
+        await fs.promises.unlink(filePath);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          console.error("Video file cleanup error:", error);
+        }
+      }
     }
 
-    return res.json({ success: true, message: "Video deleted successfully." });
+    return res.json({
+      success: true,
+      message: "Video deleted successfully.",
+    });
   } catch (error) {
     console.error("Delete video error:", error);
-    return res.status(500).json({ message: "Video deletion failed." });
+    return res.status(500).json({
+      message: "Video deletion failed.",
+    });
   }
 };

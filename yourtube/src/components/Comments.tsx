@@ -365,7 +365,7 @@ const Comments = ({ videoId }: any) => {
             />
 
             <div className="flex gap-4 items-center mb-2">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-black dark:text-white">
                 Language:
               </span>
 
@@ -374,7 +374,7 @@ const Comments = ({ videoId }: any) => {
                 onChange={(e) =>
                   setLanguage(e.target.value)
                 }
-                className="border rounded px-2 py-1 text-xs bg-white"
+                className="border rounded px-2 py-1 text-xs text-black dark:text-white"
               >
                 <option value="en">English</option>
                 <option value="hi">Hindi</option>

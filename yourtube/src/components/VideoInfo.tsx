@@ -70,12 +70,19 @@ export default function ProfilePage({ video }: VideoInfoProps) {
   const [showVideoMenu, setShowVideoMenu] = useState(false);
   const [deletingVideo, setDeletingVideo] = useState(false);
 
-  const isVideoOwner =
+ const isVideoOwner =
   !!user?._id &&
   !!video?.uploaderId &&
-  String(user._id) === String(video.uploaderId);;
-console.log("Logged-in user:", user?._id);
-console.log("Video uploader:", video?.uploaderId);
+  String(user._id) === String(
+    typeof video.uploaderId === "object"
+      ? video.uploaderId._id
+      : video.uploaderId
+
+      
+  );
+  console.log("User ID:", user?._id);
+console.log("Uploader ID:", video?.uploaderId);
+console.log("Is Owner:", isVideoOwner);
   const handleDeleteVideo = async () => {
     if (!isVideoOwner || !video?._id) return;
 
@@ -379,7 +386,7 @@ const handleDownloadVideo = async () => {
             </h2>
 
             <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-              <span>
+              <span >
                 {video.views || 0} views
               </span>
 
@@ -398,7 +405,7 @@ const handleDownloadVideo = async () => {
 <div className="flex flex-nowrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
 
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full text-black dark:text-black bg-gray-200 flex items-center justify-center">
                 <User size={20} />
               </div>
 
@@ -414,7 +421,7 @@ const handleDownloadVideo = async () => {
               </div>
 
               <Button 
-              className="hover:!bg-[#3b2418] hover:!border-[#3b2418] hover:!  text-black"
+              className="hover:!bg-[#3b2418] hover:!border-[#3b2418] hover:! text-black dark:text-white"
                 variant={
                   
                   subscribed
@@ -539,7 +546,7 @@ const handleDownloadVideo = async () => {
             </div>
           </div>
 
-          <div className="rounded-lg bg-gray-100 dark:bg-zinc-300 p-4">
+          <div className="rounded-lg bg-gray-100 dark:bg-zinc-300 p-4 text-black dark:text-black">
 
             <p className="font-semibold">
               {video.videochanel ||
@@ -562,7 +569,7 @@ const handleDownloadVideo = async () => {
         </div>
 
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold ">
             {user.name}
           </h1>
 
