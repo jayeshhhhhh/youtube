@@ -1,4 +1,3 @@
-
 import video from "../Modals/video.js";
 import Download from "../Modals/download.js";
 import User from "../Modals/Auth.js";
@@ -7,15 +6,24 @@ import mongoose from "mongoose";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.resolve(__dirname, "../uploads");
+// Setup absolute paths correctly for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// This ensures UPLOAD_DIR is always the /uploads folder at the project root
+const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 
+/**
+ * Helper to find where the video file actually exists on disk
+ */
 function findVideoFile(v) {
+  // 1. Try the filepath if it's already an absolute path or valid relative path
   if (v.filepath && fs.existsSync(v.filepath)) {
     return v.filepath;
   }
 
-  const storedName = path.basename(v.filepath || "");
+  // 2. Try to find it in the root uploads folder using the filename
+  const filename = v.filepath || v.filename || "";
+  const storedName = path.basename(filename);
   if (storedName) {
     const fallbackPath = path.join(UPLOAD_DIR, storedName);
     if (fs.existsSync(fallbackPath)) return fallbackPath;
@@ -63,7 +71,8 @@ export const uploadvideo = async (req, res) => {
     const savedVideo = await video.create({
       videotitle: videotitle.trim(),
       filename: req.file.originalname,
-     filepath: req.file.filename,
+      // Store the filename so it's easy to find in UPLOAD_DIR
+      filepath: req.file.filename,
       filetype: req.file.mimetype,
       filesize: String(req.file.size),
       videochanel: videochanel.trim(),
@@ -78,7 +87,7 @@ export const uploadvideo = async (req, res) => {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    fs.unlink(req.file.path, () => {});
+    if (req.file) fs.unlink(req.file.path, () => {});
     return res.status(500).json({ message: "Video upload failed." });
   }
 };
@@ -96,24 +105,52 @@ export const getallvideo = async (req, res) => {
   }
 };
 
-
 export const streamVideo = async (req, res) => {
   try {
     const v = await video.findById(req.params.id);
-    if (!v) return res.status(404).json({ message: "Video not found." });
 
+    if (!v) {
+      return res.status(404).json({ message: "Video not found in database." });
+    }
+
+    // Use the helper to find the file on disk
     const filePath = findVideoFile(v);
+
     if (!filePath) {
-      return res.status(410).json({
-        message: "Video file is unavailable on the server. Please upload it again.",
+      console.error("VIDEO FILE MISSING ON DISK:", v.filepath || v.filename);
+      return res.status(404).json({
+        message: "Video file missing on server. Please upload again.",
       });
     }
 
-    res.type(v.filetype || path.extname(filePath));
-    return res.sendFile(path.resolve(filePath));
+    const stat = fs.statSync(filePath);
+    const range = req.headers.range;
+
+    res.setHeader("Content-Type", v.filetype || "video/mp4");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    if (range) {
+      const parts = range.replace("bytes=", "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+
+      if (start >= stat.size || start > end) {
+        return res.status(416).end();
+      }
+
+      res.writeHead(206, {
+        "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+        "Content-Length": end - start + 1,
+      });
+
+      fs.createReadStream(filePath, { start, end }).pipe(res);
+    } else {
+      res.writeHead(200, { "Content-Length": stat.size });
+      fs.createReadStream(filePath).pipe(res);
+    }
   } catch (error) {
-    console.error("Video streaming error:", error);
-    return res.status(500).json({ message: "Unable to play this video." });
+    console.error("Stream error:", error);
+    res.status(500).json({ message: "Video streaming failed." });
   }
 };
 

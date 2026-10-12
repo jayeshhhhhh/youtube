@@ -119,6 +119,10 @@ export default function VideoPlayer({ video, allVideos }: VideoPlayerProps) {
       setIsMuted(!isMuted);
     }
   };
+interface VideoPlayerProps {
+  video: any;
+}
+
 
   const toggleFullscreen = () => {
     if (containerRef.current) {
@@ -176,6 +180,7 @@ export default function VideoPlayer({ video, allVideos }: VideoPlayerProps) {
         className="w-full h-full object-contain"
         playsInline
         preload="metadata"
+  key={video._id}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime || 0)}
@@ -186,11 +191,12 @@ export default function VideoPlayer({ video, allVideos }: VideoPlayerProps) {
         onClick={togglePlay}
       >
         
+
 <source
   src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/stream/${video._id}`}
   type={video.filetype || "video/mp4"}
-  onError={() => console.error("Video URL failed to load")}
 />
+
 
         Your browser does not support the video tag.
       </video>
