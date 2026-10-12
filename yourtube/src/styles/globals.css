@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
-
+*, *::before, *::after { box-sizing: border-box; } html, body { width: 100%; max-width: 100%; overflow-x: hidden; } img, video, iframe { max-width: 100%; } 
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
