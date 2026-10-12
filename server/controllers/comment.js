@@ -508,7 +508,14 @@ export const translateComment = async (
         message: "Comment not found"
       });
     }
+const cachedComment = await comment.findById(id);
 
+if (
+  cachedComment?.translatedText &&
+  cachedComment.language === targetLanguage
+) {
+  return res.status(200).json(cachedComment);
+}
     const response = await axios.get(
       "https://api.mymemory.translated.net/get",
       {

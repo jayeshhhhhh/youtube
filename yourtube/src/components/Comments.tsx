@@ -375,12 +375,13 @@ const Comments = ({ videoId }: any) => {
                   setLanguage(e.target.value)
                 }
                 className="border rounded px-2 py-1 text-xs text-black dark:text-white"
-              >
+              ><div className="text-black">
                 <option value="en">English</option>
                 <option value="hi">Hindi</option>
                 <option value="mr">Marathi</option>
                 <option value="ta">Tamil</option>
                 <option value="bn">Bengali</option>
+                </div>
               </select>
             </div>
 
