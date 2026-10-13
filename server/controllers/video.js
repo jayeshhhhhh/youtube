@@ -108,6 +108,9 @@ export const getallvideo = async (req, res) => {
 export const streamVideo = async (req, res) => {
   try {
     const v = await video.findById(req.params.id);
+    await video.findByIdAndUpdate(req.params.id, {
+  $inc: { views: 1 },
+});
 
     if (!v) {
       return res.status(404).json({ message: "Video not found in database." });
