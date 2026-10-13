@@ -1,5 +1,11 @@
 import express from "express";
-import { getallvideo, uploadvideo, streamVideo, deleteVideo } from "../controllers/video.js";
+import {
+  getallvideo,
+  uploadvideo,
+  streamVideo,
+  deleteVideo,
+  downloadVideo,
+} from "../controllers/video.js";
 import upload from "../filehelper/filehelper.js";
 
 const routes = express.Router();
@@ -12,7 +18,7 @@ routes.get("/getall", getallvideo);
 
 // Route to stream video (This is the one that makes the video play)
 routes.get("/stream/:id", streamVideo);
-
+routes.get("/download/:id", downloadVideo);
 // Route to delete video
 routes.delete("/:id", deleteVideo);
 
