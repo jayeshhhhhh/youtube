@@ -33,8 +33,10 @@ export default function HistoryContent() {
 
     try {
       const historyData = await axiosInstance.get(`/history/${user?._id}`);
-      setHistory(historyData.data);
-    } catch (error) {
+setHistory(
+  (Array.isArray(historyData.data) ? historyData.data : [])
+    .filter((item: any) => item?.videoid?._id)
+);    } catch (error) {
       console.error("Error loading history:", error);
     } finally {
       setLoading(false);
@@ -85,12 +87,12 @@ export default function HistoryContent() {
       </div>
 
       <div className="space-y-4">
-        {history.map((item) => (
+        {history.filter((item) => item?.videoid?._id).map((item) =>  (
           <div key={item._id} className="flex gap-4 group">
             <Link href={`/watch/${item.videoid._id}`} className="flex-shrink-0">
               <div className="relative w-40 aspect-video bg-gray-100 rounded overflow-hidden">
                 <video
-                  src={`${process.env.BACKEND_URL}/${item.videoid?.filepath}`}
+src={`${process.env.NEXT_PUBLIC_BACKEND_URL}/video/stream/${item.videoid._id}`}
                   className="object-cover group-hover:scale-105 transition-transform duration-200"
                 />
               </div>
