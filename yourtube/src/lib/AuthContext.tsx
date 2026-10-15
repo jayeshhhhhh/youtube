@@ -204,24 +204,51 @@ const changeTheme = async (selectedTheme: ThemePreference) => {
     }
   };
 
-  const handlegooglesignin = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider);
 
-      return {
-        success: true,
-        user: result.user,
-      };
-    } catch (error: any) {
-      console.error("Google Sign-In Error:", error);
-
+const handlegooglesignin = async () => {
+  try {
+    // Prevent overlapping Google popup requests
+    if ((window as any).__googleSignInInProgress) {
       return {
         success: false,
-        message: error.message || "Google Sign-In failed",
-        code: error.code,
+        message: "Google Sign-In is already in progress. Please wait.",
       };
     }
-  };
+
+    (window as any).__googleSignInInProgress = true;
+
+    // Always allow choosing another Google account
+    const { GoogleAuthProvider } = await import("firebase/auth");
+    GoogleAuthProvider.credentialFromResult;
+
+    const googleProvider = provider;
+    googleProvider.setCustomParameters({
+      prompt: "select_account",
+    });
+
+    const result = await signInWithPopup(auth, googleProvider);
+
+    return {
+      success: true,
+      user: result.user,
+    };
+  } catch (error: any) {
+    console.error("Google Sign-In Error:", error);
+
+    return {
+      success: false,
+      code: error.code,
+      message:
+        error.code === "auth/popup-blocked"
+          ? "Allow popups for this website and try again."
+          : error.code === "auth/cancelled-popup-request"
+          ? "Sign-In was cancelled. Please click once and try again."
+          : error.message || "Google Sign-In failed.",
+    };
+  } finally {
+    (window as any).__googleSignInInProgress = false;
+  }
+};
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
