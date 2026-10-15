@@ -2,6 +2,7 @@ import video from "../Modals/video.js";
 import Download from "../Modals/download.js";
 import User from "../Modals/Auth.js";
 import path from "path";
+import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -43,42 +44,62 @@ function userNames(user) {
   ].filter(Boolean).map((value) => String(value).trim().toLowerCase());
 }
 
+
 export const uploadvideo = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: "Please select a video file." });
+    return res.status(400).json({ message: "Please select a video." });
   }
 
   try {
     const { videotitle, videochanel, uploader, userId } = req.body;
 
     if (!videotitle?.trim() || !videochanel?.trim() || !uploader?.trim()) {
-      fs.unlink(req.file.path, () => {});
       return res.status(400).json({
-        message: "Video title, channel name and uploader are required.",
+        message: "Title, channel and uploader are required.",
       });
     }
 
     let uploaderId;
+
     if (userId) {
       const user = await User.findById(userId);
+
       if (!user) {
-        fs.unlink(req.file.path, () => {});
         return res.status(401).json({ message: "Invalid uploader account." });
       }
+
       uploaderId = user._id;
     }
+
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      resource_type: "video",
+      folder: "yourtube/videos",
+      eager: [
+        {
+          format: "jpg",
+          transformation: [
+            { width: 640, height: 360, crop: "fill" },
+          ],
+        },
+      ],
+      eager_async: false,
+    });
+
+    const thumbnail = result.eager?.[0]?.secure_url || "";
 
     const savedVideo = await video.create({
       videotitle: videotitle.trim(),
       filename: req.file.originalname,
-      // Store the filename so it's easy to find in UPLOAD_DIR
-      filepath: req.file.filename,
+      filepath: result.secure_url,
       filetype: req.file.mimetype,
       filesize: String(req.file.size),
+      thumbnail,
       videochanel: videochanel.trim(),
       uploader: uploader.trim(),
       ...(uploaderId ? { uploaderId } : {}),
     });
+
+    fs.unlink(req.file.path, () => {});
 
     return res.status(201).json({
       success: true,
@@ -86,11 +107,14 @@ export const uploadvideo = async (req, res) => {
       video: savedVideo,
     });
   } catch (error) {
-    console.error("Upload error:", error);
-    if (req.file) fs.unlink(req.file.path, () => {});
-    return res.status(500).json({ message: "Video upload failed." });
+    console.error("Cloudinary video upload error:", error);
+    return res.status(500).json({
+      message: "Video upload failed.",
+      error: error.message,
+    });
   }
 };
+
 
 export const getallvideo = async (req, res) => {
   try {
@@ -107,22 +131,30 @@ export const getallvideo = async (req, res) => {
 
 export const streamVideo = async (req, res) => {
   try {
-    const v = await video.findById(req.params.id);
-    await video.findByIdAndUpdate(req.params.id, {
-  $inc: { views: 1 },
-});
+    const v = await video.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
 
     if (!v) {
-      return res.status(404).json({ message: "Video not found in database." });
+      return res.status(404).json({ message: "Video not found." });
     }
 
-    // Use the helper to find the file on disk
+    // Cloudinary video
+    if (v.filepath?.startsWith("https://res.cloudinary.com/")) {
+      return res.redirect(v.filepath);
+      if (v.filepath?.startsWith("https://res.cloudinary.com/")) {
+  return res.redirect(v.filepath);
+}
+    }
+
+    // Legacy local video
     const filePath = findVideoFile(v);
 
     if (!filePath) {
-      console.error("VIDEO FILE MISSING ON DISK:", v.filepath || v.filename);
       return res.status(404).json({
-        message: "Video file missing on server. Please upload again.",
+        message: "Video file unavailable. Please upload again.",
       });
     }
 
@@ -133,30 +165,41 @@ export const streamVideo = async (req, res) => {
     res.setHeader("Accept-Ranges", "bytes");
 
     if (range) {
-      const parts = range.replace("bytes=", "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = Number(parts[0]);
+      const end = parts[1] ? Number(parts[1]) : stat.size - 1;
 
-      if (start >= stat.size || start > end) {
+      if (
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
+        start < 0 ||
+        end < start ||
+        start >= stat.size
+      ) {
         return res.status(416).end();
       }
 
+      const safeEnd = Math.min(end, stat.size - 1);
+
       res.writeHead(206, {
-        "Content-Range": `bytes ${start}-${end}/${stat.size}`,
-        "Content-Length": end - start + 1,
+        "Content-Range": `bytes ${start}-${safeEnd}/${stat.size}`,
+        "Content-Length": safeEnd - start + 1,
       });
 
-      fs.createReadStream(filePath, { start, end }).pipe(res);
-    } else {
-      res.writeHead(200, { "Content-Length": stat.size });
-      fs.createReadStream(filePath).pipe(res);
+      return fs.createReadStream(filePath, {
+        start,
+        end: safeEnd,
+      }).pipe(res);
     }
+
+    res.writeHead(200, { "Content-Length": stat.size });
+    fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error("Stream error:", error);
     res.status(500).json({ message: "Video streaming failed." });
   }
 };
-
+  
 export const downloadVideo = async (req, res) => {
   const { id: videoId } = req.params;
   const { userId } = req.query;
