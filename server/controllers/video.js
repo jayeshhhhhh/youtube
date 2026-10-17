@@ -1,3 +1,4 @@
+
 import video from "../Modals/video.js";
 import Download from "../Modals/download.js";
 import User from "../Modals/Auth.js";
@@ -5,31 +6,73 @@ import path from "path";
 import mongoose from "mongoose";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import ffmpegPath from "ffmpeg-static";
+import { execFile } from "child_process";
+import { promisify } from "util";
 
-// Setup absolute paths correctly for ESM
+// Setup paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// This ensures UPLOAD_DIR is always the /uploads folder at the project root
 const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+const execFileAsync = promisify(execFile);
+
+// Ensure upload directory exists
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 /**
- * Helper to find where the video file actually exists on disk
+ * Find the actual video file on disk.
  */
 function findVideoFile(v) {
-  // 1. Try the filepath if it's already an absolute path or valid relative path
   if (v.filepath && fs.existsSync(v.filepath)) {
     return v.filepath;
   }
 
-  // 2. Try to find it in the root uploads folder using the filename
   const filename = v.filepath || v.filename || "";
   const storedName = path.basename(filename);
+
   if (storedName) {
     const fallbackPath = path.join(UPLOAD_DIR, storedName);
     if (fs.existsSync(fallbackPath)) return fallbackPath;
   }
 
   return null;
+}
+
+/**
+ * Generate a video thumbnail using FFmpeg.
+ */
+async function generateThumbnail(videoPath, videoFilename) {
+  if (!ffmpegPath) {
+    console.error("FFmpeg binary not found.");
+    return "";
+  }
+
+  const thumbnailName =
+    `thumb-${path.parse(videoFilename).name}-${Date.now()}.jpg`;
+
+  const thumbnailPath = path.join(UPLOAD_DIR, thumbnailName);
+
+  try {
+    await execFileAsync(ffmpegPath, [
+      "-y",
+      "-i", videoPath,
+      "-ss", "1",
+      "-frames:v", "1",
+      "-vf", "scale=640:-1",
+      "-q:v", "3",
+      thumbnailPath,
+    ]);
+
+    if (fs.existsSync(thumbnailPath)) {
+      console.log("Thumbnail generated:", thumbnailName);
+      return `/uploads/${thumbnailName}`;
+    }
+
+    return "";
+  } catch (error) {
+    console.error("Thumbnail generation failed:", error.message);
+    return "";
+  }
 }
 
 function userNames(user) {
@@ -40,18 +83,27 @@ function userNames(user) {
     user.fullName,
     user.channelName,
     user.videochanel,
-  ].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
 }
 
+// UPLOAD VIDEO
 export const uploadvideo = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: "Please select a video file." });
+    return res.status(400).json({
+      message: "Please select a video file.",
+    });
   }
 
   try {
     const { videotitle, videochanel, uploader, userId } = req.body;
 
-    if (!videotitle?.trim() || !videochanel?.trim() || !uploader?.trim()) {
+    if (
+      !videotitle?.trim() ||
+      !videochanel?.trim() ||
+      !uploader?.trim()
+    ) {
       fs.unlink(req.file.path, () => {});
       return res.status(400).json({
         message: "Video title, channel name and uploader are required.",
@@ -59,22 +111,33 @@ export const uploadvideo = async (req, res) => {
     }
 
     let uploaderId;
+
     if (userId) {
       const user = await User.findById(userId);
+
       if (!user) {
         fs.unlink(req.file.path, () => {});
-        return res.status(401).json({ message: "Invalid uploader account." });
+        return res.status(401).json({
+          message: "Invalid uploader account.",
+        });
       }
+
       uploaderId = user._id;
     }
+
+    // Generate thumbnail before saving video details
+    const thumbnail = await generateThumbnail(
+      req.file.path,
+      req.file.filename
+    );
 
     const savedVideo = await video.create({
       videotitle: videotitle.trim(),
       filename: req.file.originalname,
-      // Store the filename so it's easy to find in UPLOAD_DIR
       filepath: req.file.filename,
       filetype: req.file.mimetype,
       filesize: String(req.file.size),
+      thumbnail,
       videochanel: videochanel.trim(),
       uploader: uploader.trim(),
       ...(uploaderId ? { uploaderId } : {}),
@@ -87,40 +150,57 @@ export const uploadvideo = async (req, res) => {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    if (req.file) fs.unlink(req.file.path, () => {});
-    return res.status(500).json({ message: "Video upload failed." });
+
+    if (req.file) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    return res.status(500).json({
+      message: "Video upload failed.",
+    });
   }
 };
 
+// GET ALL VIDEOS
 export const getallvideo = async (req, res) => {
   try {
     const videos = await video.find()
       .sort({ createdAt: -1 })
       .lean();
 
-    res.status(200).json(videos);
+    return res.status(200).json(videos);
   } catch (error) {
     console.error("Get videos error:", error);
-    res.status(500).json({ message: "Failed to fetch videos" });
+
+    return res.status(500).json({
+      message: "Failed to fetch videos",
+    });
   }
 };
 
+// STREAM VIDEO
 export const streamVideo = async (req, res) => {
   try {
     const v = await video.findById(req.params.id);
-    await video.findByIdAndUpdate(req.params.id, {
-  $inc: { views: 1 },
-});
 
     if (!v) {
-      return res.status(404).json({ message: "Video not found in database." });
+      return res.status(404).json({
+        message: "Video not found in database.",
+      });
     }
 
-    // Use the helper to find the file on disk
+    await video.findByIdAndUpdate(req.params.id, {
+      $inc: { views: 1 },
+    });
+
     const filePath = findVideoFile(v);
 
     if (!filePath) {
-      console.error("VIDEO FILE MISSING ON DISK:", v.filepath || v.filename);
+      console.error(
+        "VIDEO FILE MISSING ON DISK:",
+        v.filepath || v.filename
+      );
+
       return res.status(404).json({
         message: "Video file missing on server. Please upload again.",
       });
@@ -135,9 +215,16 @@ export const streamVideo = async (req, res) => {
     if (range) {
       const parts = range.replace("bytes=", "").split("-");
       const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+      const end = parts[1]
+        ? Math.min(parseInt(parts[1], 10), stat.size - 1)
+        : stat.size - 1;
 
-      if (start >= stat.size || start > end) {
+      if (
+        Number.isNaN(start) ||
+        start < 0 ||
+        start >= stat.size ||
+        start > end
+      ) {
         return res.status(416).end();
       }
 
@@ -148,49 +235,85 @@ export const streamVideo = async (req, res) => {
 
       fs.createReadStream(filePath, { start, end }).pipe(res);
     } else {
-      res.writeHead(200, { "Content-Length": stat.size });
+      res.writeHead(200, {
+        "Content-Length": stat.size,
+      });
+
       fs.createReadStream(filePath).pipe(res);
     }
   } catch (error) {
     console.error("Stream error:", error);
-    res.status(500).json({ message: "Video streaming failed." });
+
+    if (!res.headersSent) {
+      return res.status(500).json({
+        message: "Video streaming failed.",
+      });
+    }
+
+    res.end();
   }
 };
 
+// DOWNLOAD VIDEO
 export const downloadVideo = async (req, res) => {
   const { id: videoId } = req.params;
   const { userId } = req.query;
 
   if (!userId) {
-    return res.status(401).json({ message: "Please log in to download." });
+    return res.status(401).json({
+      message: "Please log in to download.",
+    });
   }
 
   try {
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found." });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+      });
+    }
 
     const v = await video.findById(videoId);
-    if (!v) return res.status(404).json({ message: "Video not found." });
+
+    if (!v) {
+      return res.status(404).json({
+        message: "Video not found.",
+      });
+    }
 
     const filePath = findVideoFile(v);
+
     if (!filePath) {
       return res.status(410).json({
-        message: "Video file is unavailable on the server. Please upload it again.",
+        message:
+          "Video file is unavailable on the server. Please upload it again.",
       });
     }
 
     const plan = String(user.plan || "free").toLowerCase();
-    const PLAN_LIMITS = { free: 1, bronze: 5, silver: 10, gold: 20 };
+
+    const PLAN_LIMITS = {
+      free: 1,
+      bronze: 5,
+      silver: 10,
+      gold: 20,
+    };
+
     const limit = PLAN_LIMITS[plan] || 1;
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
+
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
     const downloadCount = await Download.countDocuments({
       userId: user._id,
-      downloadDate: { $gte: startOfDay, $lte: endOfDay },
+      downloadDate: {
+        $gte: startOfDay,
+        $lte: endOfDay,
+      },
     });
 
     if (downloadCount >= limit) {
@@ -214,37 +337,53 @@ export const downloadVideo = async (req, res) => {
       downloadCount: 1,
     });
 
-    return res.download(filePath, path.basename(v.filename || "video.mp4"));
+    return res.download(
+      filePath,
+      path.basename(v.filename || "video.mp4")
+    );
   } catch (error) {
     console.error("Download error:", error);
-    return res.status(500).json({ message: "Video download failed." });
+
+    return res.status(500).json({
+      message: "Video download failed.",
+    });
   }
 };
 
-
+// DELETE VIDEO
 export const deleteVideo = async (req, res) => {
   const { userId } = req.query;
 
   if (!userId) {
-    return res.status(401).json({ message: "Please log in first." });
+    return res.status(401).json({
+      message: "Please log in first.",
+    });
   }
 
   try {
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(401).json({ message: "Invalid user." });
+      return res.status(401).json({
+        message: "Invalid user.",
+      });
     }
 
     const user = await User.findById(userId);
+
     if (!user) {
-      return res.status(401).json({ message: "Invalid user." });
+      return res.status(401).json({
+        message: "Invalid user.",
+      });
     }
 
     const v = await video.findById(req.params.id);
+
     if (!v) {
-      return res.status(404).json({ message: "Video not found." });
+      return res.status(404).json({
+        message: "Video not found.",
+      });
     }
 
-    // Only the original uploader ID can delete
+    // Only the original uploader can delete
     if (
       !v.uploaderId ||
       String(v.uploaderId) !== String(user._id)
@@ -255,6 +394,9 @@ export const deleteVideo = async (req, res) => {
     }
 
     const filePath = findVideoFile(v);
+    const thumbnailPath = v.thumbnail
+      ? path.join(UPLOAD_DIR, path.basename(v.thumbnail))
+      : null;
 
     await video.findByIdAndDelete(v._id);
 
@@ -268,12 +410,23 @@ export const deleteVideo = async (req, res) => {
       }
     }
 
+    if (thumbnailPath && thumbnailPath !== filePath) {
+      try {
+        await fs.promises.unlink(thumbnailPath);
+      } catch (error) {
+        if (error.code !== "ENOENT") {
+          console.error("Thumbnail cleanup error:", error);
+        }
+      }
+    }
+
     return res.json({
       success: true,
       message: "Video deleted successfully.",
     });
   } catch (error) {
     console.error("Delete video error:", error);
+
     return res.status(500).json({
       message: "Video deletion failed.",
     });

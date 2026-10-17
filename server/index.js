@@ -82,8 +82,6 @@ app.use("/video", (req, res, next) => {
   console.log("VIDEO API:", req.method, req.originalUrl);
   next();
 });
-app.use("/video", videoroutes);
-// Keep all existing APIs
 app.use("/user", userroutes);
 app.use("/video", videoroutes);
 app.use("/like", likeroutes);
