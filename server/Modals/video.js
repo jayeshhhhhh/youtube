@@ -32,6 +32,16 @@ const videochema = mongoose.Schema(
       default: "",
     },
 
+videoPublicId: {
+  type: String,
+  default: "",
+},
+
+thumbnailPublicId: {
+  type: String,
+  default: "",
+},
+
     videochanel: {
       type: String,
       required: true,

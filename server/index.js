@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import multer from "multer";
-
+import { uploadVideoAndThumbnail } from "./utils/cloudinaryVideo.js";
 import userroutes from "./routes/auth.js";
 import videoroutes from "./routes/video.js";
 import likeroutes from "./routes/like.js";
@@ -137,30 +137,47 @@ const upload = multer({
   },
 });
 
+
 app.post("/watch-party/upload", (req, res) => {
-  upload.single("video")(req, res, (error) => {
+  upload.single("video")(req, res, async (error) => {
     if (error) {
       const message =
-        error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE"
+        error instanceof multer.MulterError &&
+        error.code === "LIMIT_FILE_SIZE"
           ? "Video exceeds the 500 MB upload limit."
           : error.message || "Video upload failed.";
 
-      res.status(400).json({ error: message });
-      return;
+      return res.status(400).json({ error: message });
     }
 
     if (!req.file) {
-      res.status(400).json({ error: "Select a video first." });
-      return;
+      return res.status(400).json({ error: "Select a video first." });
     }
 
-    res.json({
-      success: true,
-      videoUrl: `/uploads/${req.file.filename}`,
-      fileName: req.file.originalname,
-    });
+    try {
+      const cloud = await uploadVideoAndThumbnail(
+        req.file.path,
+        req.file.originalname
+      );
+
+      return res.json({
+        success: true,
+        videoUrl: cloud.videoUrl,
+        thumbnail: cloud.thumbnailUrl,
+        fileName: req.file.originalname,
+      });
+    } catch (uploadError) {
+      console.error("Watch Party upload error:", uploadError);
+
+      return res.status(500).json({
+        error: "Watch Party video upload failed.",
+      });
+    } finally {
+      await fs.promises.unlink(req.file.path).catch(() => {});
+    }
   });
 });
+
 
 // ------------------------------------------
 // WATCH PARTY
@@ -294,7 +311,19 @@ io.on("connection", (socket) => {
 
     if (
       typeof videoUrl !== "string" ||
-      !videoUrl.startsWith("/uploads/") ||
+      !(
+  videoUrl.startsWith("/uploads/") ||
+  (
+    videoUrl.startsWith("https://res.cloudinary.com/") &&
+    (() => {
+      try {
+        return new URL(videoUrl).hostname === "res.cloudinary.com";
+      } catch {
+        return false;
+      }
+    })()
+  )
+) ||
       videoUrl.includes("..")
     ) {
       callback?.({

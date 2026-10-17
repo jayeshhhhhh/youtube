@@ -2,6 +2,10 @@
 import video from "../Modals/video.js";
 import Download from "../Modals/download.js";
 import User from "../Modals/Auth.js";
+
+import cloudinary from "../config/cloudinary.js";
+import { uploadVideoAndThumbnail } from "../utils/cloudinaryVideo.js";
+
 import path from "path";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -41,39 +45,7 @@ function findVideoFile(v) {
 /**
  * Generate a video thumbnail using FFmpeg.
  */
-async function generateThumbnail(videoPath, videoFilename) {
-  if (!ffmpegPath) {
-    console.error("FFmpeg binary not found.");
-    return "";
-  }
 
-  const thumbnailName =
-    `thumb-${path.parse(videoFilename).name}-${Date.now()}.jpg`;
-
-  const thumbnailPath = path.join(UPLOAD_DIR, thumbnailName);
-
-  try {
-    await execFileAsync(ffmpegPath, [
-      "-y",
-      "-i", videoPath,
-      "-ss", "1",
-      "-frames:v", "1",
-      "-vf", "scale=640:-1",
-      "-q:v", "3",
-      thumbnailPath,
-    ]);
-
-    if (fs.existsSync(thumbnailPath)) {
-      console.log("Thumbnail generated:", thumbnailName);
-      return `/uploads/${thumbnailName}`;
-    }
-
-    return "";
-  } catch (error) {
-    console.error("Thumbnail generation failed:", error.message);
-    return "";
-  }
-}
 
 function userNames(user) {
   return [
@@ -89,6 +61,7 @@ function userNames(user) {
 }
 
 // UPLOAD VIDEO
+
 export const uploadvideo = async (req, res) => {
   if (!req.file) {
     return res.status(400).json({
@@ -99,12 +72,7 @@ export const uploadvideo = async (req, res) => {
   try {
     const { videotitle, videochanel, uploader, userId } = req.body;
 
-    if (
-      !videotitle?.trim() ||
-      !videochanel?.trim() ||
-      !uploader?.trim()
-    ) {
-      fs.unlink(req.file.path, () => {});
+    if (!videotitle?.trim() || !videochanel?.trim() || !uploader?.trim()) {
       return res.status(400).json({
         message: "Video title, channel name and uploader are required.",
       });
@@ -116,7 +84,6 @@ export const uploadvideo = async (req, res) => {
       const user = await User.findById(userId);
 
       if (!user) {
-        fs.unlink(req.file.path, () => {});
         return res.status(401).json({
           message: "Invalid uploader account.",
         });
@@ -125,19 +92,20 @@ export const uploadvideo = async (req, res) => {
       uploaderId = user._id;
     }
 
-    // Generate thumbnail before saving video details
-    const thumbnail = await generateThumbnail(
+    const cloud = await uploadVideoAndThumbnail(
       req.file.path,
-      req.file.filename
+      req.file.originalname
     );
 
     const savedVideo = await video.create({
       videotitle: videotitle.trim(),
       filename: req.file.originalname,
-      filepath: req.file.filename,
+      filepath: cloud.videoUrl,
       filetype: req.file.mimetype,
-      filesize: String(req.file.size),
-      thumbnail,
+      filesize: String(cloud.filesize || req.file.size),
+      thumbnail: cloud.thumbnailUrl,
+      videoPublicId: cloud.videoPublicId,
+      thumbnailPublicId: cloud.thumbnailPublicId,
       videochanel: videochanel.trim(),
       uploader: uploader.trim(),
       ...(uploaderId ? { uploaderId } : {}),
@@ -151,15 +119,15 @@ export const uploadvideo = async (req, res) => {
   } catch (error) {
     console.error("Upload error:", error);
 
-    if (req.file) {
-      fs.unlink(req.file.path, () => {});
-    }
-
     return res.status(500).json({
       message: "Video upload failed.",
+      error: error.message,
     });
+  } finally {
+    await fs.promises.unlink(req.file.path).catch(() => {});
   }
 };
+
 
 // GET ALL VIDEOS
 export const getallvideo = async (req, res) => {
@@ -179,30 +147,30 @@ export const getallvideo = async (req, res) => {
 };
 
 // STREAM VIDEO
+
 export const streamVideo = async (req, res) => {
   try {
     const v = await video.findById(req.params.id);
 
     if (!v) {
-      return res.status(404).json({
-        message: "Video not found in database.",
-      });
+      return res.status(404).json({ message: "Video not found." });
     }
 
-    await video.findByIdAndUpdate(req.params.id, {
+    await video.findByIdAndUpdate(v._id, {
       $inc: { views: 1 },
     });
 
+    // New permanent Cloudinary video.
+    if (v.filepath?.startsWith("https://res.cloudinary.com/")) {
+      return res.redirect(302, v.filepath);
+    }
+
+    // Legacy local file fallback.
     const filePath = findVideoFile(v);
 
     if (!filePath) {
-      console.error(
-        "VIDEO FILE MISSING ON DISK:",
-        v.filepath || v.filename
-      );
-
       return res.status(404).json({
-        message: "Video file missing on server. Please upload again.",
+        message: "Old video file is missing. Please upload it again.",
       });
     }
 
@@ -214,13 +182,14 @@ export const streamVideo = async (req, res) => {
 
     if (range) {
       const parts = range.replace("bytes=", "").split("-");
-      const start = parseInt(parts[0], 10);
+      const start = Number(parts[0]);
       const end = parts[1]
-        ? Math.min(parseInt(parts[1], 10), stat.size - 1)
+        ? Math.min(Number(parts[1]), stat.size - 1)
         : stat.size - 1;
 
       if (
-        Number.isNaN(start) ||
+        !Number.isInteger(start) ||
+        !Number.isInteger(end) ||
         start < 0 ||
         start >= stat.size ||
         start > end
@@ -233,14 +202,11 @@ export const streamVideo = async (req, res) => {
         "Content-Length": end - start + 1,
       });
 
-      fs.createReadStream(filePath, { start, end }).pipe(res);
-    } else {
-      res.writeHead(200, {
-        "Content-Length": stat.size,
-      });
-
-      fs.createReadStream(filePath).pipe(res);
+      return fs.createReadStream(filePath, { start, end }).pipe(res);
     }
+
+    res.writeHead(200, { "Content-Length": stat.size });
+    return fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error("Stream error:", error);
 
@@ -253,6 +219,7 @@ export const streamVideo = async (req, res) => {
     res.end();
   }
 };
+
 
 // DOWNLOAD VIDEO
 export const downloadVideo = async (req, res) => {
@@ -282,14 +249,16 @@ export const downloadVideo = async (req, res) => {
       });
     }
 
-    const filePath = findVideoFile(v);
+    const isCloudinaryVideo =
+  v.filepath?.startsWith("https://res.cloudinary.com/");
 
-    if (!filePath) {
-      return res.status(410).json({
-        message:
-          "Video file is unavailable on the server. Please upload it again.",
-      });
-    }
+const filePath = isCloudinaryVideo ? null : findVideoFile(v);
+
+if (!isCloudinaryVideo && !filePath) {
+  return res.status(410).json({
+    message: "Video file is unavailable. Please upload it again.",
+  });
+}
 
     const plan = String(user.plan || "free").toLowerCase();
 
@@ -337,10 +306,14 @@ export const downloadVideo = async (req, res) => {
       downloadCount: 1,
     });
 
-    return res.download(
-      filePath,
-      path.basename(v.filename || "video.mp4")
-    );
+    if (isCloudinaryVideo) {
+  return res.redirect(302, v.filepath);
+}
+
+return res.download(
+  filePath,
+  path.basename(v.filename || "video.mp4")
+);
   } catch (error) {
     console.error("Download error:", error);
 
