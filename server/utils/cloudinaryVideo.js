@@ -8,6 +8,26 @@ import fs from "fs/promises";
 
 const execFileAsync = promisify(execFile);
 
+function uploadLargeVideo(filePath) {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_large(
+      filePath,
+      {
+        folder: "yourtube/videos",
+        resource_type: "video",
+        chunk_size: 6_000_000,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        if (!result?.secure_url) {
+          return reject(new Error("Cloudinary did not return a video URL."));
+        }
+        resolve(result);
+      }
+    );
+  });
+}
+
 export async function uploadVideoAndThumbnail(videoPath, originalName) {
   let thumbnailPath;
 
@@ -18,47 +38,48 @@ export async function uploadVideoAndThumbnail(videoPath, originalName) {
 
     thumbnailPath = path.join(
       path.dirname(videoPath),
-      `thumb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
+      `thumb-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.jpg`
     );
 
     try {
       await execFileAsync(ffmpegPath, [
-        "-y", "-ss", "1", "-i", videoPath,
-        "-frames:v", "1",
-        "-vf", "scale=640:-1",
-        "-q:v", "3",
+        "-y",
+        "-ss",
+        "1",
+        "-i",
+        videoPath,
+        "-frames:v",
+        "1",
+        "-vf",
+        "scale=640:-1",
+        "-q:v",
+        "3",
         thumbnailPath,
       ]);
     } catch {
-      // Fallback for videos shorter than one second.
       await execFileAsync(ffmpegPath, [
-        "-y", "-i", videoPath,
-        "-frames:v", "1",
-        "-vf", "scale=640:-1",
-        "-q:v", "3",
+        "-y",
+        "-i",
+        videoPath,
+        "-frames:v",
+        "1",
+        "-vf",
+        "scale=640:-1",
+        "-q:v",
+        "3",
         thumbnailPath,
       ]);
     }
 
     const thumbnailFile = await fs.stat(thumbnailPath);
     if (!thumbnailFile.size) {
-      throw new Error("FFmpeg generated an empty thumbnail.");
+      throw new Error("Thumbnail generation failed.");
     }
 
-    // Upload video permanently to Cloudinary.
-    const videoResult = await cloudinary.uploader.upload_large(
-        
-      videoPath,
-      {
-        folder: "yourtube/videos",
-        resource_type: "video",
-        chunk_size: 6_000_000,
-      }
-    );
-    
-console.log("CLOUDINARY VIDEO RESULT:", videoResult);
+    const videoResult = await uploadLargeVideo(videoPath);
 
-    // Upload FFmpeg thumbnail permanently to Cloudinary.
     const thumbnailResult = await cloudinary.uploader.upload(
       thumbnailPath,
       {
@@ -66,6 +87,10 @@ console.log("CLOUDINARY VIDEO RESULT:", videoResult);
         resource_type: "image",
       }
     );
+
+    if (!thumbnailResult?.secure_url) {
+      throw new Error("Cloudinary did not return a thumbnail URL.");
+    }
 
     return {
       videoUrl: videoResult.secure_url,
@@ -75,7 +100,7 @@ console.log("CLOUDINARY VIDEO RESULT:", videoResult);
       filesize: videoResult.bytes,
     };
   } catch (error) {
-    console.error("Cloudinary video/thumbnail upload failed:", error);
+    console.error("Cloudinary upload failed:", error);
     throw error;
   } finally {
     if (thumbnailPath) {
