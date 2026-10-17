@@ -311,6 +311,11 @@ const handlegooglesignin = async () => {
 
         login(response.data.result, response.data.selectedTheme);
       } catch (error: any) {
+        alert(
+  error.response?.data?.message ||
+  error.message ||
+  "Login failed"
+);
         console.error(
           "Backend Login Error:",
           error.response?.data || error
