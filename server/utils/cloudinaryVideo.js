@@ -47,6 +47,7 @@ export async function uploadVideoAndThumbnail(videoPath, originalName) {
 
     // Upload video permanently to Cloudinary.
     const videoResult = await cloudinary.uploader.upload_large(
+        
       videoPath,
       {
         folder: "yourtube/videos",
@@ -54,6 +55,8 @@ export async function uploadVideoAndThumbnail(videoPath, originalName) {
         chunk_size: 6_000_000,
       }
     );
+    
+console.log("CLOUDINARY VIDEO RESULT:", videoResult);
 
     // Upload FFmpeg thumbnail permanently to Cloudinary.
     const thumbnailResult = await cloudinary.uploader.upload(
